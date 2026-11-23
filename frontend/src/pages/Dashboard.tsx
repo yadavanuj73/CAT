@@ -215,31 +215,6 @@ export const Dashboard: React.FC = () => {
           </div>
         </Link>
       </div>
-
-      {/* Architecture & Engineering Standards Banner */}
-      <div className="bg-white border border-gray-200 rounded p-5">
-        <h2 className="text-xs font-semibold text-gray-800 uppercase tracking-wider mb-2">
-          Platform Engineering Architecture
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs text-gray-600 pt-2 border-t border-gray-100">
-          <div>
-            <p className="font-semibold text-gray-900">Three-Level Deduplication</p>
-            <p className="text-gray-500 mt-0.5">Level 1 (PDF SHA-256), Level 2 (Canonical question fingerprint), Level 3 (Semantic review queue).</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Multi-Source Provenance</p>
-            <p className="text-gray-500 mt-0.5">Identical questions appearing in multiple exams are stored once and linked via source mapping.</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Multi-Stage Verification Gate</p>
-            <p className="text-gray-500 mt-0.5">Only verified, non-duplicate content with explicit user consent enters the shared corpus.</p>
-          </div>
-          <div>
-            <p className="font-semibold text-gray-900">Session BYOK Security</p>
-            <p className="text-gray-500 mt-0.5">Private uploads and processing logs remain isolated. API keys stay exclusively in ephemeral RAM.</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

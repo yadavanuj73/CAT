@@ -49,11 +49,6 @@ export const Sidebar: React.FC = () => {
           );
         })}
       </div>
-
-      <div className="p-4 border-t border-gray-100 text-[11px] text-gray-400 space-y-1">
-        <p className="font-medium text-gray-500">Rigorous CAT Verification</p>
-        <p>100% verified historical citations. No fabricated predictions.</p>
-      </div>
     </aside>
   );
 };
