@@ -27,8 +27,12 @@ export const Settings: React.FC = () => {
 
   const handleSetKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!apiKey.trim().startsWith('sk-')) {
-      setMessage({ type: 'error', text: 'API key must start with sk-' });
+    const trimmed = apiKey.trim();
+    if (!trimmed.startsWith('AIza') && !trimmed.startsWith('sk-') && trimmed.length < 20) {
+      setMessage({
+        type: 'error',
+        text: 'API key must start with AIza (Gemini) or sk- (OpenAI), or be at least 20 characters.',
+      });
       return;
     }
 
@@ -36,15 +40,15 @@ export const Settings: React.FC = () => {
     setMessage(null);
 
     try {
-      const provider = apiKey.startsWith('sk-') ? 'openai' : 'gemini';
+      const provider = trimmed.startsWith('sk-') ? 'openai' : 'gemini';
       if (mode === 'session') {
-        await apiKeysApi.setSessionKey({ provider, api_key: apiKey });
+        await apiKeysApi.setSessionKey({ provider, api_key: trimmed });
         setMessage({
           type: 'success',
           text: `API key saved strictly in session RAM (${provider.toUpperCase()}). Cleared automatically upon logout.`,
         });
       } else {
-        await apiKeysApi.saveKey({ provider, api_key: apiKey, save: true });
+        await apiKeysApi.saveKey({ provider, api_key: trimmed, save: true });
         setMessage({
           type: 'success',
           text: `API key encrypted with AES-256-GCM and saved (${provider.toUpperCase()}).`,
@@ -65,7 +69,7 @@ export const Settings: React.FC = () => {
   const handleDelete = async () => {
     setLoading(true);
     try {
-      await apiKeysApi.deleteKey('openai');
+      await apiKeysApi.deleteKey(status?.provider || 'gemini');
       setStatus(null);
       setMessage({ type: 'success', text: 'API credentials permanently purged.' });
       fetchStatus();
