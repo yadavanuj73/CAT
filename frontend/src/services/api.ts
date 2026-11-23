@@ -1,0 +1,297 @@
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import type {
+  User,
+  LoginRequest,
+  RegisterRequest,
+  SetApiKeyRequest,
+  ApiKeyStatus,
+  Paper,
+  PaginatedResponse,
+  Question,
+  QuestionFilters,
+  AnalysisResult,
+  RunAnalysisRequest,
+  Prediction,
+  GeneratePredictionsRequest,
+  MockExam,
+  GenerateMockRequest,
+  ExamAttempt,
+  SubmitAttemptRequest,
+  AttemptResult,
+} from '../types';
+
+// ─── Axios Instance ──────────────────────────────────────────────────────────
+
+const api = axios.create({
+  baseURL: '/api',
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// Request interceptor — attach CSRF / auth token if stored
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = localStorage.getItem('access_token');
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor — handle 401 globally
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<{ detail?: string }>) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      if (
+        window.location.pathname !== '/login' &&
+        window.location.pathname !== '/register'
+      ) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
+// ─── Auth API ────────────────────────────────────────────────────────────────
+
+export const authApi = {
+  register: async (data: RegisterRequest): Promise<User> => {
+    const res = await api.post<User>('/auth/register', data);
+    return res.data;
+  },
+
+  login: async (data: LoginRequest): Promise<{ access_token: string; user: User }> => {
+    const res = await api.post<{ access_token: string; user: User }>(
+      '/auth/login',
+      data,
+    );
+    if (res.data.access_token) {
+      localStorage.setItem('access_token', res.data.access_token);
+    }
+    return res.data;
+  },
+
+  logout: async (): Promise<void> => {
+    await api.post('/auth/logout');
+    localStorage.removeItem('access_token');
+  },
+
+  getMe: async (): Promise<User> => {
+    const res = await api.get<User>('/auth/me');
+    return res.data;
+  },
+};
+
+// ─── API Keys API ────────────────────────────────────────────────────────────
+
+export const apiKeysApi = {
+  setSessionKey: async (
+    data: Omit<SetApiKeyRequest, 'save'>,
+  ): Promise<{ status: string }> => {
+    const res = await api.post<{ status: string }>('/keys/session', data);
+    return res.data;
+  },
+
+  saveKey: async (data: SetApiKeyRequest): Promise<{ status: string }> => {
+    const res = await api.post<{ status: string }>('/keys', data);
+    return res.data;
+  },
+
+  deleteKey: async (provider: string): Promise<void> => {
+    await api.delete(`/keys/${provider}`);
+  },
+
+  getKeyStatus: async (): Promise<ApiKeyStatus[]> => {
+    const res = await api.get<ApiKeyStatus[]>('/keys/status');
+    return res.data;
+  },
+};
+
+// ─── Papers API ──────────────────────────────────────────────────────────────
+
+export const papersApi = {
+  upload: async (
+    file: File,
+    metadata: { title: string; year: number; slot?: string; section?: string; source?: string },
+  ): Promise<Paper> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (value !== undefined) formData.append(key, String(value));
+    });
+    const res = await api.post<Paper>('/papers', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  list: async (
+    params?: { page?: number; page_size?: number; year?: number; section?: string },
+  ): Promise<PaginatedResponse<Paper>> => {
+    const res = await api.get<PaginatedResponse<Paper>>('/papers', { params });
+    return res.data;
+  },
+
+  get: async (id: string): Promise<Paper> => {
+    const res = await api.get<Paper>(`/papers/${id}`);
+    return res.data;
+  },
+
+  extract: async (id: string): Promise<{ status: string; task_id: string }> => {
+    const res = await api.post<{ status: string; task_id: string }>(
+      `/papers/${id}/extract`,
+    );
+    return res.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/papers/${id}`);
+  },
+};
+
+// ─── Questions API ───────────────────────────────────────────────────────────
+
+export const questionsApi = {
+  list: async (
+    filters?: QuestionFilters,
+  ): Promise<PaginatedResponse<Question>> => {
+    const res = await api.get<PaginatedResponse<Question>>('/questions', {
+      params: filters,
+    });
+    return res.data;
+  },
+
+  get: async (id: string): Promise<Question> => {
+    const res = await api.get<Question>(`/questions/${id}`);
+    return res.data;
+  },
+
+  verify: async (
+    id: string,
+    data: { status: 'correct' | 'incorrect' | 'flagged'; notes?: string },
+  ): Promise<Question> => {
+    const res = await api.post<Question>(`/questions/${id}/verify`, data);
+    return res.data;
+  },
+
+  getStats: async (): Promise<{
+    total: number;
+    verified: number;
+    unverified: number;
+    by_section: Record<string, number>;
+    by_difficulty: Record<string, number>;
+  }> => {
+    const res = await api.get('/questions/stats');
+    return res.data;
+  },
+};
+
+// ─── Analysis API ────────────────────────────────────────────────────────────
+
+export const analysisApi = {
+  getBySection: async (section: string): Promise<AnalysisResult | null> => {
+    try {
+      const res = await api.get<AnalysisResult>(`/analysis/${section}`);
+      return res.data;
+    } catch (err) {
+      const axiosErr = err as AxiosError;
+      if (axiosErr.response?.status === 404) return null;
+      throw err;
+    }
+  },
+
+  run: async (data: RunAnalysisRequest): Promise<AnalysisResult> => {
+    const res = await api.post<AnalysisResult>('/analysis/run', data);
+    return res.data;
+  },
+
+  getSummary: async (): Promise<{
+    sections_analyzed: string[];
+    total_questions_analyzed: number;
+    last_analysis_at: string | null;
+  }> => {
+    const res = await api.get('/analysis/summary');
+    return res.data;
+  },
+};
+
+// ─── Predictions API ─────────────────────────────────────────────────────────
+
+export const predictionsApi = {
+  list: async (params?: {
+    section?: string;
+    topic?: string;
+    min_confidence?: number;
+  }): Promise<Prediction[]> => {
+    const res = await api.get<Prediction[]>('/predictions', { params });
+    return res.data;
+  },
+
+  generate: async (data: GeneratePredictionsRequest): Promise<Prediction[]> => {
+    const res = await api.post<Prediction[]>('/predictions/generate', data);
+    return res.data;
+  },
+
+  getEvidence: async (id: string): Promise<Prediction> => {
+    const res = await api.get<Prediction>(`/predictions/${id}/evidence`);
+    return res.data;
+  },
+};
+
+// ─── Mock Exams API ──────────────────────────────────────────────────────────
+
+export const mockExamsApi = {
+  generate: async (data: GenerateMockRequest): Promise<MockExam> => {
+    const res = await api.post<MockExam>('/mock-exams/generate', data);
+    return res.data;
+  },
+
+  list: async (params?: {
+    page?: number;
+    page_size?: number;
+    exam_type?: string;
+  }): Promise<PaginatedResponse<MockExam>> => {
+    const res = await api.get<PaginatedResponse<MockExam>>('/mock-exams', {
+      params,
+    });
+    return res.data;
+  },
+
+  get: async (id: string): Promise<MockExam> => {
+    const res = await api.get<MockExam>(`/mock-exams/${id}`);
+    return res.data;
+  },
+
+  startAttempt: async (examId: string): Promise<ExamAttempt> => {
+    const res = await api.post<ExamAttempt>(
+      `/mock-exams/${examId}/attempts`,
+    );
+    return res.data;
+  },
+
+  submitAttempt: async (
+    examId: string,
+    attemptId: string,
+    data: SubmitAttemptRequest,
+  ): Promise<AttemptResult> => {
+    const res = await api.post<AttemptResult>(
+      `/mock-exams/${examId}/attempts/${attemptId}/submit`,
+      data,
+    );
+    return res.data;
+  },
+
+  getResults: async (
+    examId: string,
+    attemptId: string,
+  ): Promise<AttemptResult> => {
+    const res = await api.get<AttemptResult>(
+      `/mock-exams/${examId}/attempts/${attemptId}/results`,
+    );
+    return res.data;
+  },
+};
+
+export default api;
