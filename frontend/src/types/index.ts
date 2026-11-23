@@ -238,6 +238,7 @@ export interface MockExam {
   topic: string | null;
   duration_minutes: number;
   total_marks: number;
+  total_questions?: number;
   questions: MockQuestion[];
   created_by: string;
   created_at: string;
@@ -306,9 +307,11 @@ export interface SetApiKeyRequest {
 
 export interface GenerateMockRequest {
   exam_type: 'full' | 'sectional' | 'topic';
+  title?: string;
   section?: string;
   topic?: string;
   question_count?: number;
+  duration_minutes?: number;
   difficulty_mix?: Record<string, number>;
 }
 

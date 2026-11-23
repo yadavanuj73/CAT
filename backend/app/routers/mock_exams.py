@@ -146,8 +146,14 @@ async def submit_mock_attempt(
     correct_count = 0
     incorrect_count = 0
     feedback = []
+    section_stats: Dict[str, Dict[str, float]] = {}
 
     for q in questions:
+        sec = q.topic or "General"
+        if sec not in section_stats:
+            section_stats[sec] = {"score": 0.0, "max": 0.0, "correct": 0.0, "incorrect": 0.0}
+        section_stats[sec]["max"] += q.marks_positive
+
         user_ans = sub.responses.get(str(q.id), "").strip()
         is_attempted = bool(user_ans)
         is_correct = False
@@ -157,13 +163,19 @@ async def submit_mock_attempt(
                 is_correct = True
                 total_score += q.marks_positive
                 correct_count += 1
+                section_stats[sec]["score"] += q.marks_positive
+                section_stats[sec]["correct"] += 1.0
             else:
-                total_score -= q.marks_negative
+                penalty = abs(q.marks_negative)
+                total_score -= penalty
                 incorrect_count += 1
+                section_stats[sec]["score"] -= penalty
+                section_stats[sec]["incorrect"] += 1.0
 
         feedback.append({
             "question_id": str(q.id),
             "question_number": q.question_number,
+            "section": sec,
             "user_answer": user_ans,
             "correct_answer": q.correct_answer,
             "is_correct": is_correct,
@@ -187,6 +199,11 @@ async def submit_mock_attempt(
     await db.commit()
     await db.refresh(attempt)
 
+    section_breakdown = {
+        "overall": {"score": total_score, "max": exam.total_marks},
+        **section_stats,
+    }
+
     return AttemptResult(
         attempt_id=attempt.id,
         mock_exam_id=mock_id,
@@ -197,6 +214,6 @@ async def submit_mock_attempt(
         total_attempted=total_attempted,
         correct_count=correct_count,
         incorrect_count=incorrect_count,
-        section_breakdown={"overall": {"score": total_score, "max": exam.total_marks}},
+        section_breakdown=section_breakdown,
         detailed_feedback=feedback,
     )
