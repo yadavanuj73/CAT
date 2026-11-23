@@ -67,7 +67,7 @@ async def upload_paper(
     )
 
     # Immediately extract and verify questions while file is fresh in local storage
-    if not paper.is_duplicate:
+    if not paper.is_duplicate or (paper.total_questions or 0) == 0:
         try:
             await extract_and_store_paper_questions(db, paper)
             q_stmt = select(Question).where(Question.paper_id == paper.id)

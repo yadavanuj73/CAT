@@ -95,6 +95,8 @@ async def register_paper(
     )
     dup = existing.scalar_one_or_none()
     if dup:
+        dup.file_path = file_path
+        await db.flush()
         return dup
 
     # 2. Level 1 Duplicate Detection against the Global Shared Question Bank
