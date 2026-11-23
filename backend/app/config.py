@@ -15,6 +15,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Environment & Deployment
+    ENVIRONMENT: str = "development"
+
     # Core Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./cat2026.db"
 

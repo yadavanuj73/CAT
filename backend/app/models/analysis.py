@@ -7,10 +7,10 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, JSONType
 from .question import Section
 
 
@@ -42,11 +42,11 @@ class AnalysisResult(Base):
         index=True,
         comment="topic_frequency | difficulty_distribution | slot_analysis | trend_analysis | archetype_analysis",
     )
-    parameters: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    result_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    parameters: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
+    result_data: Mapped[dict] = mapped_column(JSONType, nullable=False)
     methodology: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     data_coverage: Mapped[Optional[dict]] = mapped_column(
-        JSONB,
+        JSONType,
         nullable=True,
         comment="Which years/slots were included in this analysis",
     )

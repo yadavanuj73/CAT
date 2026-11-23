@@ -8,10 +8,10 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, JSONType
 
 
 class VerificationType(str, enum.Enum):
@@ -74,7 +74,7 @@ class VerificationRecord(Base):
         Enum(VerificationResult, name="verification_result", create_constraint=True),
         nullable=False,
     )
-    details: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    details: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     verified_by: Mapped[VerifiedBy] = mapped_column(
         Enum(VerifiedBy, name="verified_by", create_constraint=True),
         nullable=False,
@@ -112,7 +112,7 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     entity_type: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     entity_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
-    details: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    details: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

@@ -18,10 +18,10 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, ArrayType
 from .question import Section
 
 
@@ -98,7 +98,7 @@ class QuestionClassification(Base):
     )
     archetype: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     concept_tags: Mapped[Optional[list]] = mapped_column(
-        ARRAY(Text), nullable=True, default=list
+        ArrayType, nullable=True, default=list
     )
     confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     classified_by: Mapped[ClassifiedBy] = mapped_column(

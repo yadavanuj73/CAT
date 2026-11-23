@@ -6,11 +6,12 @@ Extracts session ID for ephemeral in-memory BYOK API key lookup.
 
 import uuid
 from typing import Optional
-from fastapi import Cookie, Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
 from app.services.auth_service import decode_access_token, get_user_by_id
+from app.security.csrf import verify_csrf_token
 
 
 async def get_current_user(
@@ -56,6 +57,24 @@ async def get_current_user(
         )
 
     return user
+
+
+async def verify_csrf_token_if_cookie(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    authorization: Optional[str] = Header(None),
+    x_csrf_token: Optional[str] = Header(None),
+) -> None:
+    """
+    Enforce CSRF verification for cookie-authenticated state-changing requests.
+    Bearer-header requests are exempt per standard OWASP recommendations.
+    """
+    if not authorization and request.method in ["POST", "PUT", "DELETE", "PATCH"]:
+        if not x_csrf_token or not verify_csrf_token(str(current_user.id), x_csrf_token):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="CSRF token validation failed or token missing.",
+            )
 
 
 def get_session_id(

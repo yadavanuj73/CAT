@@ -169,6 +169,7 @@ async def run_section_analysis(
     stmt = (
         select(Question)
         .where(
+            Question.user_id == user_id,
             Question.section == Section(section),
             Question.verification_status == VerificationStatus.VERIFIED,
         )
@@ -177,11 +178,24 @@ async def run_section_analysis(
     result = await db.execute(stmt)
     questions = result.scalars().all()
 
+    # STRICT GATE: Only verified questions are permitted into the trusted analytical dataset.
+    # Unverified or rejected questions are strictly excluded.
     if not questions:
-        # Fallback to all questions if none strictly verified yet, but with lower weight notice
-        fallback_stmt = select(Question).where(Question.section == Section(section))
-        fallback_res = await db.execute(fallback_stmt)
-        questions = fallback_res.scalars().all()
+        return SectionAnalysisSummary(
+            section=section,
+            total_verified_questions=0,
+            years_covered=[],
+            top_topics=[],
+            difficulty_distribution=DifficultyDistribution(
+                easy_count=0, medium_count=0, hard_count=0,
+                easy_pct=0.0, medium_pct=0.0, hard_pct=0.0,
+            ),
+            question_type_distribution=QuestionTypeDistribution(
+                mcq_count=0, tita_count=0, mcq_pct=0.0, tita_pct=0.0,
+            ),
+            recurring_archetypes=[],
+            methodology="Analytical gate active: 0 verified historical questions present. Pending data verification.",
+        )
 
     current_year = 2025
     topic_counts: Dict[tuple, int] = defaultdict(int)

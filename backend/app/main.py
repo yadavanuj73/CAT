@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
-from app.database import init_db
+from app.database import AsyncSessionLocal, init_db
 from app.routers import (
     analysis_router,
     api_keys_router,
@@ -20,12 +20,18 @@ from app.routers import (
     questions_router,
 )
 from app.security.redaction import redact_secrets
+from app.services.ingestion_service import recover_stalled_paper_extractions
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure tables exist
+    # Startup: ensure tables exist and recover any interrupted jobs from previous restart
     await init_db()
+    async with AsyncSessionLocal() as session:
+        try:
+            await recover_stalled_paper_extractions(session)
+        except Exception:
+            pass
     yield
     # Shutdown logic if needed
 

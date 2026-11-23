@@ -32,4 +32,5 @@ class UserResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    csrf_token: Optional[str] = None
     user: UserResponse

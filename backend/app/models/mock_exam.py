@@ -18,10 +18,10 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin
+from .base import Base, JSONType, TimestampMixin
 from .question import Difficulty, QuestionType, Section
 
 
@@ -89,7 +89,7 @@ class MockExam(Base):
     total_questions: Mapped[int] = mapped_column(Integer, nullable=False)
     total_marks: Mapped[float] = mapped_column(Float, nullable=False)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
-    marking_scheme: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    marking_scheme: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     verification_status: Mapped[MockVerificationStatus] = mapped_column(
         Enum(MockVerificationStatus, name="mock_verification_status", create_constraint=True),
         default=MockVerificationStatus.PENDING,
@@ -145,7 +145,7 @@ class MockQuestion(Base):
         Enum(QuestionType, name="question_type", create_constraint=False, create_type=False),
         nullable=False,
     )
-    options: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    options: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     correct_answer: Mapped[str] = mapped_column(Text, nullable=False)
     solution_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     topic: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
@@ -163,7 +163,7 @@ class MockQuestion(Base):
         server_default=MockVerificationStatus.PENDING.value,
         nullable=False,
     )
-    verification_details: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    verification_details: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -203,10 +203,10 @@ class ExamAttempt(Base):
     )
     finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     time_spent_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    responses: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    responses: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     max_score: Mapped[float] = mapped_column(Float, nullable=False)
-    section_scores: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    section_scores: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     status: Mapped[AttemptStatus] = mapped_column(
         Enum(AttemptStatus, name="attempt_status", create_constraint=True),
         default=AttemptStatus.IN_PROGRESS,

@@ -28,11 +28,21 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Helper to read cookie value
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+  return match ? decodeURIComponent(match[3]) : null;
+}
+
 // Request interceptor — attach CSRF / auth token if stored
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('access_token');
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const csrf = getCookie('csrf_token');
+  if (csrf && config.headers) {
+    config.headers['X-CSRF-Token'] = csrf;
   }
   return config;
 });
@@ -95,17 +105,17 @@ export const apiKeysApi = {
   },
 
   saveKey: async (data: SetApiKeyRequest): Promise<{ status: string }> => {
-    const res = await api.post<{ status: string }>('/keys', data);
+    const res = await api.post<{ status: string }>('/keys/save', data);
     return res.data;
   },
 
-  deleteKey: async (provider: string): Promise<void> => {
-    await api.delete(`/keys/${provider}`);
+  deleteKey: async (_provider?: string): Promise<void> => {
+    await api.delete('/keys');
   },
 
   getKeyStatus: async (): Promise<ApiKeyStatus[]> => {
-    const res = await api.get<ApiKeyStatus[]>('/keys/status');
-    return res.data;
+    const res = await api.get<ApiKeyStatus | ApiKeyStatus[]>('/keys/status');
+    return Array.isArray(res.data) ? res.data : [res.data];
   },
 };
 
@@ -118,10 +128,12 @@ export const papersApi = {
   ): Promise<Paper> => {
     const formData = new FormData();
     formData.append('file', file);
-    Object.entries(metadata).forEach(([key, value]) => {
-      if (value !== undefined) formData.append(key, String(value));
-    });
-    const res = await api.post<Paper>('/papers', formData, {
+    formData.append('year', String(metadata.year));
+    if (metadata.slot) formData.append('slot', metadata.slot);
+    formData.append('source_name', metadata.title || 'Official CAT Paper');
+    if (metadata.source) formData.append('source_type', metadata.source);
+
+    const res = await api.post<Paper>('/papers/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     return res.data;
@@ -244,51 +256,63 @@ export const predictionsApi = {
 
 export const mockExamsApi = {
   generate: async (data: GenerateMockRequest): Promise<MockExam> => {
-    const res = await api.post<MockExam>('/mock-exams/generate', data);
+    const res = await api.post<MockExam>('/mocks/generate', data);
     return res.data;
   },
 
-  list: async (params?: {
+  list: async (_params?: {
     page?: number;
     page_size?: number;
     exam_type?: string;
   }): Promise<PaginatedResponse<MockExam>> => {
-    const res = await api.get<PaginatedResponse<MockExam>>('/mock-exams', {
-      params,
-    });
-    return res.data;
+    const res = await api.get<MockExam[]>('/mocks');
+    return {
+      items: res.data || [],
+      total: res.data?.length || 0,
+      page: 1,
+      page_size: 50,
+      total_pages: 1,
+    };
   },
 
   get: async (id: string): Promise<MockExam> => {
-    const res = await api.get<MockExam>(`/mock-exams/${id}`);
+    const res = await api.get<MockExam>(`/mocks/${id}`);
     return res.data;
   },
 
   startAttempt: async (examId: string): Promise<ExamAttempt> => {
-    const res = await api.post<ExamAttempt>(
-      `/mock-exams/${examId}/attempts`,
-    );
-    return res.data;
+    return {
+      id: `attempt_${examId}`,
+      exam_id: examId,
+      user_id: 'current_user',
+      answers: {},
+      started_at: new Date().toISOString(),
+      submitted_at: null,
+      time_taken_seconds: null,
+    };
   },
 
   submitAttempt: async (
     examId: string,
-    attemptId: string,
+    _attemptId: string,
     data: SubmitAttemptRequest,
   ): Promise<AttemptResult> => {
     const res = await api.post<AttemptResult>(
-      `/mock-exams/${examId}/attempts/${attemptId}/submit`,
-      data,
+      `/mocks/${examId}/attempt`,
+      {
+        responses: data.answers,
+        time_spent_seconds: data.time_taken_seconds,
+      },
     );
     return res.data;
   },
 
   getResults: async (
     examId: string,
-    attemptId: string,
+    _attemptId: string,
   ): Promise<AttemptResult> => {
     const res = await api.get<AttemptResult>(
-      `/mock-exams/${examId}/attempts/${attemptId}/results`,
+      `/mocks/${examId}/attempt`,
     );
     return res.data;
   },

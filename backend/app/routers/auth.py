@@ -4,10 +4,12 @@ Authentication router: register, login, logout, me.
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.routers.deps import get_current_user, get_session_id
 from app.schemas.user import TokenResponse, UserCreate, UserLogin, UserResponse
+from app.security.csrf import generate_csrf_token
 from app.security.session import session_key_store
 from app.services.auth_service import (
     create_access_token,
@@ -31,17 +33,27 @@ async def register(req: UserCreate, response: Response, db: AsyncSession = Depen
 
     user = await create_user(db, req.email, req.password)
     token = create_access_token(user.id, user.email)
+    csrf_token = generate_csrf_token(str(user.id))
 
+    is_prod = getattr(settings, "ENVIRONMENT", "development") == "production"
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=False,  # Set to True when in production HTTPS
+        secure=is_prod,
+        samesite="lax",
+    )
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,  # Client needs to read CSRF token to send in X-CSRF-Token header
+        secure=is_prod,
         samesite="lax",
     )
 
     return TokenResponse(
         access_token=token,
+        csrf_token=csrf_token,
         user=UserResponse.model_validate(user),
     )
 
@@ -57,16 +69,27 @@ async def login(req: UserLogin, response: Response, db: AsyncSession = Depends(g
         )
 
     token = create_access_token(user.id, user.email)
+    csrf_token = generate_csrf_token(str(user.id))
+
+    is_prod = getattr(settings, "ENVIRONMENT", "development") == "production"
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=False,
+        secure=is_prod,
+        samesite="lax",
+    )
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,
+        secure=is_prod,
         samesite="lax",
     )
 
     return TokenResponse(
         access_token=token,
+        csrf_token=csrf_token,
         user=UserResponse.model_validate(user),
     )
 
@@ -79,10 +102,11 @@ async def logout(
 ):
     """
     Log out user. Expunges in-memory session API keys immediately
-    and clears authentication cookie.
+    and clears authentication cookies.
     """
     session_key_store.delete_key(str(current_user.id), session_id)
     response.delete_cookie(key="access_token")
+    response.delete_cookie(key="csrf_token")
     return {"message": "Successfully logged out. Session credentials cleared."}
 
 

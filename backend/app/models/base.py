@@ -5,13 +5,17 @@ Base model classes and mixins for the CAT Intelligence 2026 platform.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, JSON, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB as PG_JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+# Portable cross-database types (PostgreSQL native in prod, SQLite compatible in test)
+JSONType = JSON().with_variant(PG_JSONB, "postgresql")
+ArrayType = JSON().with_variant(PG_ARRAY(Text), "postgresql")
+UUIDType = Uuid(as_uuid=True)
 
 
 class Base(DeclarativeBase):
-    """Declarative base for all ORM models."""
     pass
 
 

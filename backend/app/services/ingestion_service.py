@@ -119,3 +119,22 @@ async def register_paper(
     await db.commit()
     await db.refresh(paper)
     return paper
+
+
+async def recover_stalled_paper_extractions(db: AsyncSession) -> int:
+    """
+    Failure recovery utility for interrupted extractions (e.g. Render container restarts).
+    Finds papers left in EXTRACTING state and marks them as FAILED with retry instructions.
+    """
+    from sqlalchemy import update
+    stmt = (
+        update(Paper)
+        .where(Paper.status == PaperStatus.EXTRACTING)
+        .values(
+            status=PaperStatus.FAILED,
+            notes="Extraction interrupted by container restart or unexpected termination. Ready for retry.",
+        )
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    return result.rowcount

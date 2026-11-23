@@ -63,7 +63,7 @@ async def verify_question_data(
             )
         )
 
-    # 2. Option Consistency Check (for MCQ)
+    # 2. Option Consistency & Format Check
     if q.question_type.value == "MCQ":
         opt_stmt = select(QuestionOption).where(QuestionOption.question_id == q.id)
         opt_res = await db.execute(opt_stmt)
@@ -81,7 +81,6 @@ async def verify_question_data(
                 )
             )
         else:
-            # Check for duplicate options
             opt_texts = [o.option_text.strip().lower() for o in options]
             if len(opt_texts) != len(set(opt_texts)):
                 failures.append("MCQ contains duplicate options.")
@@ -104,8 +103,34 @@ async def verify_question_data(
                         verified_by="system",
                     )
                 )
+    elif q.question_type.value == "TITA":
+        # TITA questions must NOT have options
+        opt_stmt = select(QuestionOption).where(QuestionOption.question_id == q.id)
+        opt_res = await db.execute(opt_stmt)
+        options = opt_res.scalars().all()
+        if len(options) > 0:
+            failures.append("TITA (Type In The Answer) question must not contain multiple choice options.")
+            audit_records.append(
+                VerificationRecord(
+                    question_id=q.id,
+                    verification_type=VerificationType.OPTION_CONSISTENCY,
+                    result=VerificationResult.FAILED,
+                    details={"error": "tita_has_options", "count": len(options)},
+                    verified_by="system",
+                )
+            )
+        else:
+            audit_records.append(
+                VerificationRecord(
+                    question_id=q.id,
+                    verification_type=VerificationType.OPTION_CONSISTENCY,
+                    result=VerificationResult.PASSED,
+                    details={"type": "TITA_verified_no_options"},
+                    verified_by="system",
+                )
+            )
 
-    # 3. Deterministic Mathematical Check (for QA questions with equations)
+    # 3. Section-Specific Grounding & Logic Verification
     if q.section.value == "QA":
         math_valid, math_msg = verify_arithmetic_statement(q.question_text)
         audit_records.append(
@@ -114,6 +139,91 @@ async def verify_question_data(
                 verification_type=VerificationType.MATH_VERIFY,
                 result=VerificationResult.PASSED if math_valid else VerificationResult.WARNING,
                 details={"message": math_msg},
+                verified_by="system",
+            )
+        )
+    elif q.section.value == "VARC":
+        # VARC passage grounding
+        if q.has_passage:
+            if not q.passage_text or len(q.passage_text.strip()) < 80:
+                failures.append("VARC Reading Comprehension question missing linked passage context.")
+                audit_records.append(
+                    VerificationRecord(
+                        question_id=q.id,
+                        verification_type=VerificationType.SOURCE_VERIFY,
+                        result=VerificationResult.FAILED,
+                        details={"error": "missing_or_truncated_passage"},
+                        verified_by="system",
+                    )
+                )
+            else:
+                audit_records.append(
+                    VerificationRecord(
+                        question_id=q.id,
+                        verification_type=VerificationType.SOURCE_VERIFY,
+                        result=VerificationResult.PASSED,
+                        details={"passage_length": len(q.passage_text)},
+                        verified_by="system",
+                    )
+                )
+    elif q.section.value == "DILR":
+        # DILR caselet logic check: text must describe constraint rules, sets, or tabular relationships
+        dilr_indicators = ["table", "chart", "graph", "person", "sit", "tournament", "round", "team", "condition", "following"]
+        has_logic = any(ind in q.question_text.lower() for ind in dilr_indicators)
+        if not has_logic and len(q.question_text) < 40:
+            failures.append("DILR caselet lacks sufficient logical constraint definitions.")
+            audit_records.append(
+                VerificationRecord(
+                    question_id=q.id,
+                    verification_type=VerificationType.AMBIGUITY_CHECK,
+                    result=VerificationResult.FAILED,
+                    details={"error": "insufficient_dilr_constraints"},
+                    verified_by="system",
+                )
+            )
+        else:
+            audit_records.append(
+                VerificationRecord(
+                    question_id=q.id,
+                    verification_type=VerificationType.AMBIGUITY_CHECK,
+                    result=VerificationResult.PASSED,
+                    details={"logic_structure": "validated"},
+                    verified_by="system",
+                )
+            )
+
+    # 4. Duplicate Question Detection
+    dup_stmt = select(Question).where(
+        Question.id != q.id,
+        Question.section == q.section,
+        Question.year == q.year,
+        Question.verification_status == VerificationStatus.VERIFIED,
+    )
+    dup_res = await db.execute(dup_stmt)
+    existing_qs = dup_res.scalars().all()
+    q_norm = "".join(q.question_text.lower().split())
+
+    for eq in existing_qs:
+        eq_norm = "".join(eq.question_text.lower().split())
+        if q_norm == eq_norm or (len(q_norm) > 40 and q_norm[:60] == eq_norm[:60]):
+            failures.append(f"Duplicate question detected matching Question #{eq.question_number} from CAT {eq.year}.")
+            audit_records.append(
+                VerificationRecord(
+                    question_id=q.id,
+                    verification_type=VerificationType.DUPLICATE_CHECK,
+                    result=VerificationResult.FAILED,
+                    details={"duplicate_of": str(eq.id), "matched_year": eq.year},
+                    verified_by="system",
+                )
+            )
+            break
+    else:
+        audit_records.append(
+            VerificationRecord(
+                question_id=q.id,
+                verification_type=VerificationType.DUPLICATE_CHECK,
+                result=VerificationResult.PASSED,
+                details={"duplicate_status": "unique"},
                 verified_by="system",
             )
         )
