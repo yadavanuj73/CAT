@@ -66,9 +66,12 @@ export const UploadPapers: React.FC = () => {
         });
       } else {
         setMsg({
-          type: 'success',
-          text: `Paper uploaded successfully with SHA-256 fingerprint. Ready for question extraction and independent verification.`,
+          type: 'info',
+          text: `Paper uploaded successfully. Extracting questions, verifying mathematics, and promoting to Shared Bank...`,
         });
+        if (res && (res as any).id) {
+          await handleExtract((res as any).id);
+        }
       }
       setSelectedFile(null);
     } catch {

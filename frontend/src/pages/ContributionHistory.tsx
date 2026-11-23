@@ -7,6 +7,7 @@ import {
   Clock,
   ShieldCheck,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 
 export const ContributionHistory: React.FC = () => {
@@ -16,6 +17,8 @@ export const ContributionHistory: React.FC = () => {
   const [historyLogs, setHistoryLogs] = useState<UserProcessingHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isDetailLoading, setIsDetailLoading] = useState<boolean>(false);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadUserPapers();
@@ -50,6 +53,27 @@ export const ContributionHistory: React.FC = () => {
       console.error('Failed to load paper details', err);
     } finally {
       setIsDetailLoading(false);
+    }
+  };
+
+  const handleExtractPaper = async (paperId: string) => {
+    setIsExtracting(true);
+    setActionMsg(null);
+    try {
+      const res = await papersApi.extract(paperId);
+      setActionMsg({
+        type: 'success',
+        text: res.message || `Extracted ${res.questions_count || 0} questions, verified them, and promoted eligible questions to the Global Shared Bank!`,
+      });
+      await selectPaper(paperId);
+      await loadUserPapers();
+    } catch (err: any) {
+      setActionMsg({
+        type: 'error',
+        text: err.response?.data?.detail || 'Extraction failed. Ensure PDF has readable text or OCR.',
+      });
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -133,7 +157,17 @@ export const ContributionHistory: React.FC = () => {
                         Paper ID: <span className="font-mono">{summary.paper_id}</span>
                       </p>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
+                      {summary.total_extracted === 0 && (
+                        <button
+                          onClick={() => handleExtractPaper(summary.paper_id)}
+                          disabled={isExtracting}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded shadow-xs transition-colors disabled:opacity-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>{isExtracting ? 'Extracting...' : 'Extract & Verify Now'}</span>
+                        </button>
+                      )}
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold ${
                           summary.sharing_status === 'approved'
@@ -154,6 +188,26 @@ export const ContributionHistory: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {actionMsg && (
+                    <div
+                      className={`p-3 rounded text-xs border ${
+                        actionMsg.type === 'success'
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : 'bg-red-50 border-red-200 text-red-800'
+                      }`}
+                    >
+                      {actionMsg.text}
+                    </div>
+                  )}
+
+                  {summary.total_extracted === 0 && !actionMsg && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 flex items-center justify-between">
+                      <span>
+                        Paper uploaded & fingerprinted (SHA-256). Click <strong>Extract & Verify Now</strong> to parse questions, verify them, and publish to the Global Shared Bank.
+                      </span>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-gray-50 rounded p-3">
