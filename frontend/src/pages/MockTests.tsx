@@ -266,11 +266,10 @@ export const MockTests: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveSectionTab('ALL')}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                  activeSectionTab === 'ALL'
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${activeSectionTab === 'ALL'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 All Sections ({activeMock.questions?.length || 0})
               </button>
@@ -283,17 +282,15 @@ export const MockTests: React.FC = () => {
                     key={sec}
                     type="button"
                     onClick={() => setActiveSectionTab(sec)}
-                    className={`px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors ${
-                      activeSectionTab === sec
+                    className={`px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors ${activeSectionTab === sec
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     <span>{sec}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                        activeSectionTab === sec ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-600'
-                      }`}
+                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${activeSectionTab === sec ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-600'
+                        }`}
                     >
                       {secAnswered}/{secCount}
                     </span>
@@ -321,11 +318,10 @@ export const MockTests: React.FC = () => {
                   <a
                     key={q.id}
                     href={`#q-${q.id}`}
-                    className={`w-7 h-7 rounded text-[11px] font-mono font-semibold flex items-center justify-center border transition-all ${
-                      isAnswered
+                    className={`w-7 h-7 rounded text-[11px] font-mono font-semibold flex items-center justify-center border transition-all ${isAnswered
                         ? 'bg-green-600 text-white border-green-700 shadow-xs'
                         : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
-                    }`}
+                      }`}
                   >
                     {idx + 1}
                   </a>
@@ -378,18 +374,16 @@ export const MockTests: React.FC = () => {
                           key={opt.label}
                           type="button"
                           onClick={() => handleSelectAnswer(q.id, opt.label)}
-                          className={`w-full text-left p-3 rounded text-xs border transition-colors flex items-center gap-3 ${
-                            answers[q.id] === opt.label
+                          className={`w-full text-left p-3 rounded text-xs border transition-colors flex items-center gap-3 ${answers[q.id] === opt.label
                               ? 'bg-blue-50 border-blue-600 text-blue-900 font-semibold ring-1 ring-blue-600'
                               : 'bg-white border-gray-200 hover:border-gray-300 text-gray-700'
-                          }`}
+                            }`}
                         >
                           <span
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                              answers[q.id] === opt.label
+                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] font-bold shrink-0 ${answers[q.id] === opt.label
                                 ? 'bg-blue-600 text-white border-blue-600'
                                 : 'border-gray-300 text-gray-600'
-                            }`}
+                              }`}
                           >
                             {opt.label}
                           </span>
@@ -532,9 +526,8 @@ export const MockTests: React.FC = () => {
             {result.detailed_feedback?.map((fb: any, idx: number) => (
               <div
                 key={idx}
-                className={`p-4 border rounded text-xs space-y-2.5 ${
-                  fb.is_correct ? 'border-green-200 bg-green-50/20' : 'border-red-200 bg-red-50/20'
-                }`}
+                className={`p-4 border rounded text-xs space-y-2.5 ${fb.is_correct ? 'border-green-200 bg-green-50/20' : 'border-red-200 bg-red-50/20'
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -674,11 +667,10 @@ export const MockTests: React.FC = () => {
                 </label>
                 <div className="grid grid-cols-1 gap-2.5">
                   <label
-                    className={`p-3 border rounded cursor-pointer transition-all flex items-start gap-3 ${
-                      examType === 'full'
+                    className={`p-3 border rounded cursor-pointer transition-all flex items-start gap-3 ${examType === 'full'
                         ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"
@@ -701,11 +693,10 @@ export const MockTests: React.FC = () => {
                   </label>
 
                   <label
-                    className={`p-3 border rounded cursor-pointer transition-all flex items-start gap-3 ${
-                      examType === 'sectional'
+                    className={`p-3 border rounded cursor-pointer transition-all flex items-start gap-3 ${examType === 'sectional'
                         ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"
@@ -727,11 +718,10 @@ export const MockTests: React.FC = () => {
                               key={sec}
                               type="button"
                               onClick={() => setSectionalChoice(sec)}
-                              className={`py-1.5 px-2 text-xs font-semibold rounded border transition-colors ${
-                                sectionalChoice === sec
+                              className={`py-1.5 px-2 text-xs font-semibold rounded border transition-colors ${sectionalChoice === sec
                                   ? 'bg-blue-600 text-white border-blue-600'
                                   : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                              }`}
+                                }`}
                             >
                               {sec} ({sec === 'VARC' ? '24 Qs' : sec === 'DILR' ? '20 Qs' : '22 Qs'})
                             </button>
@@ -742,11 +732,10 @@ export const MockTests: React.FC = () => {
                   </label>
 
                   <label
-                    className={`p-3 border rounded cursor-pointer transition-all flex items-start gap-3 ${
-                      examType === 'topic'
+                    className={`p-3 border rounded cursor-pointer transition-all flex items-start gap-3 ${examType === 'topic'
                         ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-600'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"

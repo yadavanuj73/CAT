@@ -2,6 +2,7 @@
 Historical Papers Router: Upload, List, Extraction Trigger, Provenance & Contribution History.
 """
 
+import os
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, UploadFile, status
@@ -64,6 +65,25 @@ async def upload_paper(
         terms_accepted=terms_accepted,
         notes=notes,
     )
+
+    # Immediately extract and verify questions while file is fresh in local storage
+    if not paper.is_duplicate:
+        try:
+            await extract_and_store_paper_questions(db, paper)
+            q_stmt = select(Question).where(Question.paper_id == paper.id)
+            questions = (await db.execute(q_stmt)).scalars().all()
+            for q in questions:
+                try:
+                    await verify_question_data(db, q.id)
+                except Exception:
+                    pass
+            if allow_sharing:
+                await evaluate_and_promote_paper_to_shared_bank(db, paper.id)
+        except Exception as e:
+            # Paper registration succeeds even if OCR/extraction encounters issues
+            pass
+
+    await db.refresh(paper)
     return PaperResponse.model_validate(paper)
 
 
@@ -184,6 +204,13 @@ async def trigger_extraction(
             "shared_paper_id": str(paper.shared_paper_id),
         }
 
+    # Verify that the physical file exists in current container storage
+    if not paper.file_path or not os.path.exists(paper.file_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The original PDF file is not on the server container (containers restart periodically). Please re-upload the PDF to automatically extract and publish questions.",
+        )
+
     # Extract questions
     count = await extract_and_store_paper_questions(db, paper)
 
@@ -205,3 +232,26 @@ async def trigger_extraction(
         "questions_count": count,
         "promotion": promotion_result,
     }
+
+
+@router.delete("/{paper_id}", status_code=status.HTTP_200_OK)
+async def delete_paper(
+    paper_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete an uploaded paper record and any unverified questions."""
+    stmt = select(Paper).where(Paper.id == paper_id, Paper.user_id == current_user.id)
+    paper = (await db.execute(stmt)).scalar_one_or_none()
+    if not paper:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paper not found.")
+
+    if paper.file_path and os.path.exists(paper.file_path):
+        try:
+            os.remove(paper.file_path)
+        except Exception:
+            pass
+
+    await db.delete(paper)
+    await db.commit()
+    return {"status": "success", "message": "Paper record removed."}

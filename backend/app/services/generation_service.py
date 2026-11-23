@@ -247,3 +247,4 @@ async def generate_mock_exam(
     await db.commit()
     await db.refresh(mock)
     return mock
+
