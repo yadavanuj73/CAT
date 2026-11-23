@@ -9,19 +9,28 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 from app.config import settings
 from app.models.base import Base
 
 connect_args = {}
+engine_kwargs = {
+    "echo": False,
+    "future": True,
+}
+
 if settings.DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+else:
+    # Disable prepared statement caching for Supabase PgBouncer pooler (port 6543)
+    connect_args["statement_cache_size"] = 0
+    connect_args["prepared_statement_cache_size"] = 0
+    engine_kwargs["poolclass"] = NullPool
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=False,
-    future=True,
     connect_args=connect_args,
-    pool_pre_ping=True,
+    **engine_kwargs,
 )
 
 AsyncSessionLocal = async_sessionmaker(
