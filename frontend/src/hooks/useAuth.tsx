@@ -94,9 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error: null,
       });
     } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string };
       const message =
-        (err as { response?: { data?: { detail?: string } } }).response?.data
-          ?.detail ?? 'Registration failed. Please try again.';
+        axiosErr.response?.data?.detail ??
+        (axiosErr.message && axiosErr.message.includes('Network Error')
+          ? 'Network or CORS connection issue. Please verify backend URL.'
+          : 'Registration failed. Please try again.');
       setState((s) => ({
         ...s,
         isLoading: false,
