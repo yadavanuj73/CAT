@@ -21,7 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, ArrayType
+from .base import Base, ArrayType, make_enum
 from .question import Section
 
 
@@ -45,7 +45,7 @@ class Topic(Base):
         server_default=func.gen_random_uuid(),
     )
     section: Mapped[Section] = mapped_column(
-        Enum(Section, name="section", create_constraint=False, create_type=False),
+        make_enum(Section, name="section", create_constraint=False, create_type=False),
         nullable=False,
         index=True,
     )
@@ -102,7 +102,7 @@ class QuestionClassification(Base):
     )
     confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     classified_by: Mapped[ClassifiedBy] = mapped_column(
-        Enum(ClassifiedBy, name="classified_by", create_constraint=True),
+        make_enum(ClassifiedBy, name="classified_by", create_constraint=True),
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

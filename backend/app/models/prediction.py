@@ -19,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, make_enum
 from .question import Section
 
 
@@ -41,7 +41,7 @@ class Prediction(Base):
         index=True,
     )
     section: Mapped[Section] = mapped_column(
-        Enum(Section, name="section", create_constraint=False, create_type=False),
+        make_enum(Section, name="section", create_constraint=False, create_type=False),
         nullable=False,
         index=True,
     )

@@ -11,7 +11,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, JSONType
+from .base import Base, JSONType, make_enum
 
 
 class VerificationType(str, enum.Enum):
@@ -67,16 +67,16 @@ class VerificationRecord(Base):
         index=True,
     )
     verification_type: Mapped[VerificationType] = mapped_column(
-        Enum(VerificationType, name="verification_type", create_constraint=True),
+        make_enum(VerificationType, name="verification_type", create_constraint=True),
         nullable=False,
     )
     result: Mapped[VerificationResult] = mapped_column(
-        Enum(VerificationResult, name="verification_result", create_constraint=True),
+        make_enum(VerificationResult, name="verification_result", create_constraint=True),
         nullable=False,
     )
     details: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     verified_by: Mapped[VerifiedBy] = mapped_column(
-        Enum(VerifiedBy, name="verified_by", create_constraint=True),
+        make_enum(VerifiedBy, name="verified_by", create_constraint=True),
         nullable=False,
     )
     verified_at: Mapped[datetime] = mapped_column(

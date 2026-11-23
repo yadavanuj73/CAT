@@ -21,7 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, JSONType, TimestampMixin
+from .base import Base, JSONType, TimestampMixin, make_enum
 from .question import Difficulty, QuestionType, Section
 
 
@@ -69,13 +69,13 @@ class MockExam(Base):
         index=True,
     )
     exam_type: Mapped[ExamType] = mapped_column(
-        Enum(ExamType, name="exam_type", create_constraint=True),
+        make_enum(ExamType, name="exam_type", create_constraint=True),
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     section: Mapped[Optional[Section]] = mapped_column(
-        Enum(Section, name="section", create_constraint=False, create_type=False),
+        make_enum(Section, name="section", create_constraint=False, create_type=False),
         nullable=True,
         comment="For sectional mocks",
     )
@@ -91,7 +91,7 @@ class MockExam(Base):
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     marking_scheme: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     verification_status: Mapped[MockVerificationStatus] = mapped_column(
-        Enum(MockVerificationStatus, name="mock_verification_status", create_constraint=True),
+        make_enum(MockVerificationStatus, name="mock_verification_status", create_constraint=True),
         default=MockVerificationStatus.PENDING,
         server_default=MockVerificationStatus.PENDING.value,
         nullable=False,
@@ -142,7 +142,7 @@ class MockQuestion(Base):
     question_number: Mapped[int] = mapped_column(Integer, nullable=False)
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
     question_type: Mapped[QuestionType] = mapped_column(
-        Enum(QuestionType, name="question_type", create_constraint=False, create_type=False),
+        make_enum(QuestionType, name="question_type", create_constraint=False, create_type=False),
         nullable=False,
     )
     options: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
@@ -151,14 +151,14 @@ class MockQuestion(Base):
     topic: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     subtopic: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
     difficulty: Mapped[Optional[Difficulty]] = mapped_column(
-        Enum(Difficulty, name="difficulty", create_constraint=False, create_type=False),
+        make_enum(Difficulty, name="difficulty", create_constraint=False, create_type=False),
         nullable=True,
     )
     estimated_time_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     marks_positive: Mapped[float] = mapped_column(Float, default=3.0, nullable=False)
     marks_negative: Mapped[float] = mapped_column(Float, default=-1.0, nullable=False)
     verification_status: Mapped[MockVerificationStatus] = mapped_column(
-        Enum(MockVerificationStatus, name="mock_verification_status", create_constraint=False, create_type=False),
+        make_enum(MockVerificationStatus, name="mock_verification_status", create_constraint=False, create_type=False),
         default=MockVerificationStatus.PENDING,
         server_default=MockVerificationStatus.PENDING.value,
         nullable=False,
@@ -208,7 +208,7 @@ class ExamAttempt(Base):
     max_score: Mapped[float] = mapped_column(Float, nullable=False)
     section_scores: Mapped[Optional[dict]] = mapped_column(JSONType, nullable=True)
     status: Mapped[AttemptStatus] = mapped_column(
-        Enum(AttemptStatus, name="attempt_status", create_constraint=True),
+        make_enum(AttemptStatus, name="attempt_status", create_constraint=True),
         default=AttemptStatus.IN_PROGRESS,
         server_default=AttemptStatus.IN_PROGRESS.value,
         nullable=False,

@@ -32,7 +32,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin
+from .base import Base, TimestampMixin, make_enum
 from .question import Difficulty, QuestionType, Section
 
 
@@ -119,16 +119,16 @@ class SharedVerifiedQuestion(TimestampMixin, Base):
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
     canonical_text: Mapped[str] = mapped_column(Text, nullable=False)
     question_type: Mapped[QuestionType] = mapped_column(
-        Enum(QuestionType, name="question_type", create_constraint=False),
+        make_enum(QuestionType, name="question_type", create_constraint=False),
         nullable=False,
     )
     section: Mapped[Section] = mapped_column(
-        Enum(Section, name="section", create_constraint=False),
+        make_enum(Section, name="section", create_constraint=False),
         nullable=False,
         index=True,
     )
     difficulty: Mapped[Difficulty] = mapped_column(
-        Enum(Difficulty, name="difficulty", create_constraint=False),
+        make_enum(Difficulty, name="difficulty", create_constraint=False),
         default=Difficulty.MEDIUM,
         nullable=False,
     )

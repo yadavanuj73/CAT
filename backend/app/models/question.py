@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin
+from .base import Base, TimestampMixin, make_enum
 
 
 class QuestionType(str, enum.Enum):
@@ -84,16 +84,16 @@ class Question(TimestampMixin, Base):
     question_number: Mapped[int] = mapped_column(Integer, nullable=False)
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
     question_type: Mapped[QuestionType] = mapped_column(
-        Enum(QuestionType, name="question_type", create_constraint=True),
+        make_enum(QuestionType, name="question_type", create_constraint=True),
         nullable=False,
     )
     section: Mapped[Section] = mapped_column(
-        Enum(Section, name="section", create_constraint=True),
+        make_enum(Section, name="section", create_constraint=True),
         nullable=False,
         index=True,
     )
     difficulty: Mapped[Optional[Difficulty]] = mapped_column(
-        Enum(Difficulty, name="difficulty", create_constraint=True),
+        make_enum(Difficulty, name="difficulty", create_constraint=True),
         nullable=True,
     )
     marks_positive: Mapped[float] = mapped_column(Float, default=3.0, nullable=False)
@@ -104,7 +104,7 @@ class Question(TimestampMixin, Base):
     passage_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     extraction_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     verification_status: Mapped[VerificationStatus] = mapped_column(
-        Enum(VerificationStatus, name="verification_status", create_constraint=True),
+        make_enum(VerificationStatus, name="verification_status", create_constraint=True),
         default=VerificationStatus.UNVERIFIED,
         server_default=VerificationStatus.UNVERIFIED.value,
         nullable=False,

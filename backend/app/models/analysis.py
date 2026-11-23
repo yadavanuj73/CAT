@@ -10,7 +10,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, JSONType
+from .base import Base, JSONType, make_enum
 from .question import Section
 
 
@@ -32,7 +32,7 @@ class AnalysisResult(Base):
         index=True,
     )
     section: Mapped[Section] = mapped_column(
-        Enum(Section, name="section", create_constraint=False, create_type=False),
+        make_enum(Section, name="section", create_constraint=False, create_type=False),
         nullable=False,
         index=True,
     )
