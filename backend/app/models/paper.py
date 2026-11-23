@@ -22,7 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin
+from .base import Base, TimestampMixin, make_enum
 
 
 class PaperStatus(str, enum.Enum):
@@ -72,7 +72,7 @@ class Paper(TimestampMixin, Base):
         String(64), nullable=True, index=True, comment="SHA-256 for dedup"
     )
     status: Mapped[PaperStatus] = mapped_column(
-        Enum(PaperStatus, name="paper_status", create_constraint=True),
+        make_enum(PaperStatus, name="paper_status", create_constraint=True),
         default=PaperStatus.UPLOADED,
         server_default=PaperStatus.UPLOADED.value,
         nullable=False,
@@ -137,7 +137,7 @@ class PaperSource(Base):
         index=True,
     )
     source_type: Mapped[SourceType] = mapped_column(
-        Enum(SourceType, name="source_type", create_constraint=True),
+        make_enum(SourceType, name="source_type", create_constraint=True),
         nullable=False,
     )
     source_url: Mapped[Optional[str]] = mapped_column(String(2048), nullable=True)

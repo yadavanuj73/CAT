@@ -24,10 +24,19 @@ from app.security.redaction import redact_secrets
 from app.services.ingestion_service import recover_stalled_paper_extractions
 
 
+import logging
+
+logger = logging.getLogger("uvicorn.error")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: ensure tables exist and recover any interrupted jobs from previous restart
-    await init_db()
+    try:
+        await init_db()
+    except Exception as exc:
+        logger.warning(f"init_db non-fatal warning during startup: {exc}")
+
     async with AsyncSessionLocal() as session:
         try:
             await recover_stalled_paper_extractions(session)
@@ -48,6 +57,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

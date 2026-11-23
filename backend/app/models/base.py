@@ -5,7 +5,7 @@ Base model classes and mixins for the CAT Intelligence 2026 platform.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, JSON, Text, Uuid, func
+from sqlalchemy import Column, DateTime, Enum as SaEnum, JSON, Text, Uuid, func
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY, JSONB as PG_JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -13,6 +13,16 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 JSONType = JSON().with_variant(PG_JSONB, "postgresql")
 ArrayType = JSON().with_variant(PG_ARRAY(Text), "postgresql")
 UUIDType = Uuid(as_uuid=True)
+
+
+def make_enum(enum_cls, name: str, **kwargs):
+    """Create a SQLAlchemy Enum that uses the Python enum's string values in PostgreSQL."""
+    return SaEnum(
+        enum_cls,
+        name=name,
+        values_callable=lambda obj: [e.value for e in obj],
+        **kwargs,
+    )
 
 
 class Base(DeclarativeBase):
