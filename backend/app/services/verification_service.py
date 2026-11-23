@@ -26,6 +26,41 @@ from app.services.deduplication_service import (
     flag_for_similarity_review,
 )
 from app.utils.math_solver import verify_arithmetic_statement
+from app.services.ai import get_ai_provider, AIVerificationFeedbackSchema
+
+
+async def perform_ai_verification_critique(
+    question_text: str,
+    section: str,
+    options: Optional[List[str]] = None,
+    correct_answer: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> Optional[AIVerificationFeedbackSchema]:
+    """
+    Perform an AI-based critique using Google Gemini (gemini-2.5-flash).
+    STRICT POLICY (Requirement 11 & 12):
+    Gemini feedback is advisory and logged to audit trail.
+    A question is NEVER marked as VERIFIED solely because Gemini deemed it valid.
+    Deterministic arithmetic verification, option formatting, and deduplication
+    remain completely independent and decisive.
+    """
+    try:
+        provider = get_ai_provider("gemini", api_key=api_key)
+        prompt = (
+            f"Review this CAT {section} question for logical consistency, mathematical correctness, "
+            f"and option ambiguity:\nQuestion: {question_text}\nOptions: {options}\nClaimed Answer: {correct_answer}"
+        )
+        critique = await provider.generate_structured(
+            prompt=prompt,
+            response_schema=AIVerificationFeedbackSchema,
+            system_instruction=(
+                "You are an adversarial exam verification auditor. Detect mathematical contradictions, "
+                "ambiguities, multiple correct options, or impossible constraints. Be conservative."
+            ),
+        )
+        return critique
+    except Exception:
+        return None
 
 
 async def verify_question_data(

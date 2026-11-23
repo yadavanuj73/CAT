@@ -6,8 +6,9 @@ Guarantees API keys and secrets are never exposed in logs or exception reports.
 import re
 from typing import Any
 
-# Patterns matching API keys (OpenAI sk-..., Bearer tokens, passwords)
+# Patterns matching API keys (Gemini AIza..., OpenAI sk-..., Bearer tokens, passwords)
 KEY_PATTERNS = [
+    (re.compile(r"AIza[a-zA-Z0-9_\-]{30,}", re.IGNORECASE), "[REDACTED_GEMINI_KEY]"),
     (re.compile(r"sk-[a-zA-Z0-9_-]{20,}", re.IGNORECASE), "[REDACTED_API_KEY]"),
     (re.compile(r"Bearer\s+[a-zA-Z0-9_\-\.]{20,}", re.IGNORECASE), "Bearer [REDACTED_TOKEN]"),
     (re.compile(r"('password'|\"password\"):\s*('|\")[^'\"]+('|\")", re.IGNORECASE), r'\1: "[REDACTED]"'),

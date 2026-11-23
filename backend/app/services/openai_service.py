@@ -1,45 +1,34 @@
 """
-BYOK OpenAI API Client Service.
-Executes AI completions using the authenticated user's session key or encrypted key.
-Never exposes the key in logs or error messages.
+Legacy AI Client Adapter.
+Seamlessly routes AI completion requests through the unified AI provider architecture (Google Gemini).
+Retains backwards compatibility for any legacy callers while defaulting to Gemini.
 """
 
 from typing import Dict, List, Optional
-import httpx
-from openai import AsyncOpenAI
+from app.services.ai import get_ai_provider, AIProviderError
 from app.security.redaction import redact_secrets
 
 
-async def get_openai_client(api_key: str) -> AsyncOpenAI:
-    """Initialize an AsyncOpenAI client with timeout and redacted error handling."""
-    if not api_key:
-        raise ValueError("Valid OpenAI API key must be supplied via BYOK session or stored settings.")
-    return AsyncOpenAI(
-        api_key=api_key,
-        timeout=httpx.Timeout(60.0, connect=10.0),
-        max_retries=2,
-    )
-
-
 async def generate_chat_completion(
-    api_key: str,
-    system_prompt: str,
-    user_prompt: str,
-    model: str = "gpt-4o",
+    api_key: Optional[str] = None,
+    system_prompt: str = "",
+    user_prompt: str = "",
+    model: Optional[str] = None,
     temperature: float = 0.2,
 ) -> str:
-    """Execute LLM chat completion with strict secret redaction on exceptions."""
+    """Execute LLM chat completion using the unified Gemini AI provider."""
     try:
-        client = await get_openai_client(api_key)
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "human" if model.startswith("o") else "user", "content": user_prompt},
-            ],
+        # Determine provider by key format or default to gemini
+        provider_name = "gemini"
+        if api_key and api_key.startswith("sk-"):
+            provider_name = "openai"
+
+        provider = get_ai_provider(provider_name, api_key=api_key, model=model)
+        return await provider.generate_text(
+            prompt=user_prompt,
+            system_instruction=system_prompt,
             temperature=temperature,
         )
-        return response.choices[0].message.content or ""
     except Exception as e:
         redacted_msg = redact_secrets(str(e))
-        raise RuntimeError(f"OpenAI completion failed: {redacted_msg}")
+        raise RuntimeError(f"AI completion failed: {redacted_msg}")

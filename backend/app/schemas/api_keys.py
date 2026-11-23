@@ -7,13 +7,13 @@ from pydantic import BaseModel, Field
 
 
 class SessionApiKeyRequest(BaseModel):
-    api_key: str = Field(..., min_length=20, description="OpenAI API key (e.g., sk-...)")
-    provider: str = Field(default="openai", description="AI Provider")
+    api_key: str = Field(..., min_length=16, description="AI API key (e.g., Google Gemini AIza... or OpenAI sk-...)")
+    provider: str = Field(default="gemini", description="AI Provider (default: gemini)")
 
 
 class SaveApiKeyRequest(BaseModel):
-    api_key: str = Field(..., min_length=20, description="OpenAI API key to encrypt with AES-256-GCM")
-    provider: str = Field(default="openai", description="AI Provider")
+    api_key: str = Field(..., min_length=16, description="AI API key to encrypt with AES-256-GCM")
+    provider: str = Field(default="gemini", description="AI Provider (default: gemini)")
 
 
 class ApiKeyStatusResponse(BaseModel):

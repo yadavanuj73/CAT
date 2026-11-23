@@ -36,17 +36,18 @@ export const Settings: React.FC = () => {
     setMessage(null);
 
     try {
+      const provider = apiKey.startsWith('sk-') ? 'openai' : 'gemini';
       if (mode === 'session') {
-        await apiKeysApi.setSessionKey({ provider: 'openai', api_key: apiKey });
+        await apiKeysApi.setSessionKey({ provider, api_key: apiKey });
         setMessage({
           type: 'success',
-          text: 'API key saved strictly in session RAM. Cleared automatically upon logout.',
+          text: `API key saved strictly in session RAM (${provider.toUpperCase()}). Cleared automatically upon logout.`,
         });
       } else {
-        await apiKeysApi.saveKey({ provider: 'openai', api_key: apiKey, save: true });
+        await apiKeysApi.saveKey({ provider, api_key: apiKey, save: true });
         setMessage({
           type: 'success',
-          text: 'API key encrypted with AES-256-GCM and saved.',
+          text: `API key encrypted with AES-256-GCM and saved (${provider.toUpperCase()}).`,
         });
       }
       setApiKey('');
@@ -134,7 +135,7 @@ export const Settings: React.FC = () => {
 
       {/* Configuration Form */}
       <div className="bg-white border border-gray-200 rounded p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-gray-900">Configure OpenAI API Key</h2>
+        <h2 className="text-sm font-semibold text-gray-900">Configure AI Provider Key (Google Gemini / OpenAI)</h2>
 
         {/* Mode selector */}
         <div className="grid grid-cols-2 gap-3">
@@ -179,13 +180,13 @@ export const Settings: React.FC = () => {
         <form onSubmit={handleSetKey} className="space-y-4 pt-2">
           <div>
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-              OpenAI Secret API Key
+              Google Gemini / OpenAI Secret API Key
             </label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-proj-..."
+              placeholder="AIzaSy... or sk-..."
               className="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
               required
             />

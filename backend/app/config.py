@@ -42,6 +42,10 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
+    # Google Gemini AI Provider
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
     # Optional Supabase integration
     SUPABASE_URL: str = ""
     SUPABASE_SERVICE_KEY: str = ""

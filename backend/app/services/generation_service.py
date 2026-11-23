@@ -32,7 +32,7 @@ from app.schemas.mock_exam import (
     MockQuestionOption,
     MockQuestionResponse,
 )
-from app.services.openai_service import generate_chat_completion
+from app.services.ai import get_ai_provider, AIProviderError
 from app.utils.math_solver import verify_arithmetic_statement
 
 PRESET_CAT_QUESTIONS = [

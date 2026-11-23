@@ -23,6 +23,7 @@ from app.models.question import (
 )
 from app.models.topic import Topic, QuestionClassification, ClassifiedBy
 from app.services.ocr_service import extract_pages_from_pdf, compute_overall_confidence
+from app.services.ai import get_ai_provider, ExtractedPaperBatchSchema, AIProviderError
 
 # Section keyword heuristics
 VARC_KEYWORDS = ["reading comprehension", "verbal ability", "para jumble", "sentence completion", "passage", "summary"]
@@ -99,6 +100,32 @@ def parse_raw_text_into_questions(pages: List[Dict]) -> List[Dict]:
             i += 3
 
     return questions_data
+
+
+async def extract_questions_with_gemini(
+    raw_text: str,
+    year: int,
+    slot: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> ExtractedPaperBatchSchema:
+    """
+    Extract structured questions from raw CAT paper text using Google Gemini (gemini-2.5-flash).
+    Extracts question text, section, type, options, and reading passages.
+    Guarantees extracted items remain UNVERIFIED until passed through independent deterministic gates.
+    """
+    provider = get_ai_provider("gemini", api_key=api_key)
+    system_prompt = (
+        "You are an expert CAT examination digitizer. Extract questions from authentic CAT examination papers. "
+        "Strictly adhere to the three official CAT sections: VARC, DILR, and QA. Questions must be either MCQ (with 4 distinct options) "
+        "or TITA (Type In The Answer with no options). For Reading Comprehension (VARC) or Caselets (DILR), preserve the shared passage."
+    )
+    user_prompt = f"Extract all authentic CAT examination questions from the following text for CAT {year} {slot or ''}:\n\n{raw_text[:25000]}"
+    return await provider.generate_structured(
+        prompt=user_prompt,
+        response_schema=ExtractedPaperBatchSchema,
+        system_instruction=system_prompt,
+        temperature=0.1,
+    )
 
 
 async def extract_and_store_paper_questions(

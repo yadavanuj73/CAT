@@ -22,6 +22,28 @@ from app.services.session_service import resolve_key_status
 router = APIRouter(prefix="/keys", tags=["API Keys"])
 
 
+def _validate_api_key_format(api_key: str, provider: str = "gemini") -> None:
+    """Validate format depending on provider."""
+    prov = (provider or "gemini").lower()
+    if prov in ("gemini", "google"):
+        if not (api_key.startswith("AIza") or len(api_key) >= 20):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid Google Gemini API key format. Expected key starting with 'AIza' or minimum 20 characters.",
+            )
+    elif prov == "openai":
+        if not api_key.startswith("sk-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OpenAI API key format. Expected key starting with 'sk-'.",
+            )
+    elif len(api_key) < 16:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid API key format for provider '{provider}'.",
+        )
+
+
 @router.post("/session", response_model=ApiKeyStatusResponse)
 async def set_session_key(
     req: SessionApiKeyRequest,
@@ -33,11 +55,7 @@ async def set_session_key(
     Key lives strictly in server RAM and is purged on logout or server restart.
     Never persisted to database or disk.
     """
-    if not req.api_key.startswith("sk-"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OpenAI API key format. Expected key starting with 'sk-'.",
-        )
+    _validate_api_key_format(req.api_key, req.provider)
 
     session_key_store.set_key(str(current_user.id), session_id, req.api_key, req.provider)
     status_dict = session_key_store.get_status(str(current_user.id), session_id)
@@ -54,11 +72,7 @@ async def save_encrypted_key(
     Save API key with AES-256-GCM authenticated encryption (OPT-IN MODE).
     User explicitly accepts persistent storage risk.
     """
-    if not req.api_key.startswith("sk-"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OpenAI API key format. Expected key starting with 'sk-'.",
-        )
+    _validate_api_key_format(req.api_key, req.provider)
 
     await save_user_credential(db, current_user.id, req.api_key, req.provider)
     from app.services.crypto_service import get_credential_status
@@ -80,7 +94,7 @@ async def delete_key(
     session_key_store.delete_key(str(current_user.id), session_id)
     await delete_user_credential(db, current_user.id)
     return ApiKeyStatusResponse(
-        provider="openai",
+        provider="gemini",
         is_set=False,
         is_saved=False,
         masked_key=None,
