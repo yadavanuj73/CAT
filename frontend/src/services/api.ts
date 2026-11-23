@@ -203,9 +203,11 @@ export const questionsApi = {
 // ─── Analysis API ────────────────────────────────────────────────────────────
 
 export const analysisApi = {
-  getBySection: async (section: string): Promise<AnalysisResult | null> => {
+  getBySection: async (section: string, decay_factor?: number): Promise<AnalysisResult | null> => {
     try {
-      const res = await api.get<AnalysisResult>(`/analysis/${section}`);
+      const res = await api.get<AnalysisResult>(`/analysis/${section}`, {
+        params: decay_factor !== undefined ? { decay_factor } : undefined,
+      });
       return res.data;
     } catch (err) {
       const axiosErr = err as AxiosError;

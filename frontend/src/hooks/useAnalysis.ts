@@ -2,10 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { analysisApi } from '../services/api';
 import type { RunAnalysisRequest } from '../types';
 
-export function useAnalysis(section: string | undefined) {
+export function useAnalysis(section: string | undefined, options?: { decay_factor?: number }) {
   return useQuery({
-    queryKey: ['analysis', section],
-    queryFn: () => analysisApi.getBySection(section!),
+    queryKey: ['analysis', section, options?.decay_factor],
+    queryFn: () => analysisApi.getBySection(section!, options?.decay_factor),
     enabled: !!section,
   });
 }

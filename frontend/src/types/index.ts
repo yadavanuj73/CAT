@@ -116,28 +116,44 @@ export interface Topic {
 
 export interface TopicFrequency {
   topic: string;
-  count: number;
+  subtopic: string | null;
+  total_count: number;
   percentage: number;
-  trend: 'increasing' | 'decreasing' | 'stable';
-  yearly_counts: Record<number, number>;
+  year_distribution: Record<string, number>;
+  recency_weighted_score: number;
+  avg_difficulty: string;
 }
 
 export interface DifficultyDistribution {
-  easy: number;
-  medium: number;
-  hard: number;
-  total: number;
+  easy_count: number;
+  medium_count: number;
+  hard_count: number;
+  easy_pct: number;
+  medium_pct: number;
+  hard_pct: number;
+}
+
+export interface QuestionTypeDistribution {
+  mcq_count: number;
+  tita_count: number;
+  mcq_pct: number;
+  tita_pct: number;
 }
 
 export interface AnalysisResult {
-  id: string;
   section: string;
-  year_range: [number, number];
-  topic_frequencies: TopicFrequency[];
+  total_verified_questions: number;
+  years_covered: number[];
+  top_topics: TopicFrequency[];
   difficulty_distribution: DifficultyDistribution;
-  question_type_distribution: Record<string, number>;
-  average_marks: number;
-  generated_at: string;
+  question_type_distribution: QuestionTypeDistribution;
+  recurring_archetypes: string[];
+  methodology: string;
+}
+
+export interface RunAnalysisRequest {
+  section?: string;
+  recency_decay_factor?: number;
 }
 
 // ─── Predictions ─────────────────────────────────────────────────────────────
@@ -260,12 +276,6 @@ export interface GenerateMockRequest {
 export interface SubmitAttemptRequest {
   answers: Record<string, string | number | null>;
   time_taken_seconds: number;
-}
-
-export interface RunAnalysisRequest {
-  section: string;
-  year_start?: number;
-  year_end?: number;
 }
 
 export interface GeneratePredictionsRequest {

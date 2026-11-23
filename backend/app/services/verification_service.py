@@ -133,15 +133,27 @@ async def verify_question_data(
     # 3. Section-Specific Grounding & Logic Verification
     if q.section.value == "QA":
         math_valid, math_msg = verify_arithmetic_statement(q.question_text)
-        audit_records.append(
-            VerificationRecord(
-                question_id=q.id,
-                verification_type=VerificationType.MATH_VERIFY,
-                result=VerificationResult.PASSED if math_valid else VerificationResult.WARNING,
-                details={"message": math_msg},
-                verified_by="system",
+        if not math_valid:
+            failures.append(math_msg)
+            audit_records.append(
+                VerificationRecord(
+                    question_id=q.id,
+                    verification_type=VerificationType.MATH_VERIFY,
+                    result=VerificationResult.FAILED,
+                    details={"message": math_msg},
+                    verified_by="system",
+                )
             )
-        )
+        else:
+            audit_records.append(
+                VerificationRecord(
+                    question_id=q.id,
+                    verification_type=VerificationType.MATH_VERIFY,
+                    result=VerificationResult.PASSED,
+                    details={"message": math_msg},
+                    verified_by="system",
+                )
+            )
     elif q.section.value == "VARC":
         # VARC passage grounding
         if q.has_passage:
