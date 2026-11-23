@@ -159,36 +159,75 @@ export interface RunAnalysisRequest {
 // ─── Predictions ─────────────────────────────────────────────────────────────
 
 export interface PredictionEvidence {
-  factor: string;
-  description: string;
+  evidence_type: string;
+  evidence_text: string;
   weight: number;
-  supporting_data: string;
+  reference_years: number[];
+  factor?: string;
+  description?: string;
+  supporting_data?: string;
 }
 
 export interface Prediction {
   id: string;
   section: string;
-  topic: string;
-  subtopic: string | null;
-  predicted_count: number;
-  confidence: number;
-  difficulty_prediction: 'easy' | 'medium' | 'hard';
-  reasoning: string;
-  evidence: PredictionEvidence[];
-  generated_at: string;
+  topic_name: string;
+  subtopic_name?: string | null;
+  predicted_archetype: string;
+  statistical_score: number;
+  calibrated_confidence: number;
+  explanation: string;
+  uncertainty_and_limitations: string;
+  historical_evidence: PredictionEvidence[];
+  backtesting_baseline_comparison?: string | null;
+  created_at: string;
+  // Aliases for component backwards-compatibility
+  topic?: string;
+  subtopic?: string | null;
+  predicted_count?: number;
+  confidence?: number;
+  difficulty_prediction?: 'easy' | 'medium' | 'hard';
+  reasoning?: string;
+  evidence?: PredictionEvidence[];
+  generated_at?: string;
+}
+
+export interface PredictionListResponse {
+  predictions: Prediction[];
+  total: number;
+  methodology_statement: string;
+  last_updated: string;
 }
 
 // ─── Mock Exams ──────────────────────────────────────────────────────────────
 
+export interface MockQuestionOption {
+  label: string;
+  text: string;
+}
+
 export interface MockQuestion {
   id: string;
+  mock_exam_id?: string;
+  question_number: number;
   question_text: string;
-  question_type: 'mcq' | 'tita';
-  options: QuestionOption[];
-  answer_key: AnswerKey;
-  solution: Solution | null;
-  classification: QuestionClassification;
-  source_question_id: string | null;
+  question_type: string;
+  options?: MockQuestionOption[] | null;
+  correct_answer: string;
+  solution_text: string;
+  topic: string;
+  subtopic?: string | null;
+  difficulty: string;
+  estimated_time_seconds: number;
+  marks_positive: number;
+  marks_negative: number;
+  verification_status: string;
+  verification_details?: Record<string, any> | null;
+  // Legacy aliases
+  answer_key?: AnswerKey;
+  solution?: Solution | null;
+  classification?: QuestionClassification;
+  source_question_id?: string | null;
 }
 
 export interface MockExam {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePredictions } from '../hooks/usePredictions';
-import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, ShieldAlert, BarChart3 } from 'lucide-react';
 import type { Prediction, PredictionEvidence } from '../types';
 
 export const Predictions: React.FC = () => {
@@ -64,6 +64,13 @@ export const Predictions: React.FC = () => {
         <div className="space-y-4">
           {predictionsData.map((pred: Prediction) => {
             const isExpanded = expandedId === pred.id;
+            const topic = pred.topic_name || pred.topic || 'General';
+            const subtopic = pred.subtopic_name || pred.subtopic;
+            const archetype = pred.predicted_archetype || `${topic} Archetype`;
+            const confidence = pred.calibrated_confidence ?? pred.confidence ?? 0.75;
+            const explanation = pred.explanation || pred.reasoning || '';
+            const evidenceList = pred.historical_evidence || pred.evidence || [];
+
             return (
               <div
                 key={pred.id}
@@ -75,7 +82,7 @@ export const Predictions: React.FC = () => {
                       {pred.section}
                     </span>
                     <span className="text-xs text-gray-500 font-medium">
-                      {pred.topic} {pred.subtopic && `› ${pred.subtopic}`}
+                      {topic} {subtopic && `› ${subtopic}`}
                     </span>
                   </div>
 
@@ -83,14 +90,7 @@ export const Predictions: React.FC = () => {
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-gray-400">Calibrated Conf:</span>
                       <span className="font-semibold text-emerald-600 font-mono">
-                        {Math.round(pred.confidence * 100)}%
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="text-gray-400">Predicted Qs:</span>
-                      <span className="font-semibold text-blue-600 font-mono">
-                        {pred.predicted_count}
+                        {Math.round(confidence * 100)}%
                       </span>
                     </div>
 
@@ -105,29 +105,53 @@ export const Predictions: React.FC = () => {
 
                 {/* Archetype Title */}
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900">{pred.topic} Archetype</h2>
-                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">{pred.reasoning}</p>
+                  <h2 className="text-sm font-semibold text-gray-900">{archetype}</h2>
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">{explanation}</p>
                 </div>
 
                 {/* Expandable Evidence Drawer */}
                 {isExpanded && (
-                  <div className="pt-3 border-t border-gray-100 space-y-3 text-xs">
+                  <div className="pt-3 border-t border-gray-100 space-y-4 text-xs">
+                    {/* Limitations & Uncertainty */}
+                    {pred.uncertainty_and_limitations && (
+                      <div className="p-3 bg-gray-50 border border-gray-200 rounded text-gray-700 flex items-start gap-2">
+                        <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold text-gray-900">Uncertainty & Exam Limitations</p>
+                          <p className="mt-0.5 leading-relaxed">{pred.uncertainty_and_limitations}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Backtesting Comparison */}
+                    {pred.backtesting_baseline_comparison && (
+                      <div className="p-3 bg-blue-50/50 border border-blue-100 rounded text-blue-900 flex items-start gap-2">
+                        <BarChart3 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-semibold">Walk-Forward Backtesting Baseline</p>
+                          <p className="mt-0.5 text-blue-800">{pred.backtesting_baseline_comparison}</p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Historical Citations */}
                     <div>
                       <p className="font-semibold text-gray-800 mb-2">Historical Supporting Evidence</p>
                       <div className="space-y-2">
-                        {pred.evidence?.map((ev: PredictionEvidence, idx: number) => (
+                        {evidenceList.map((ev: PredictionEvidence, idx: number) => (
                           <div
                             key={idx}
                             className="p-2.5 bg-blue-50/40 border border-blue-100 rounded text-gray-700 flex items-start gap-2"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
                             <div>
-                              <p className="font-medium text-gray-900">{ev.factor}</p>
-                              <p className="leading-relaxed mt-0.5">{ev.description}</p>
-                              {ev.supporting_data && (
+                              <p className="font-medium text-gray-900">
+                                {ev.evidence_type ? ev.evidence_type.toUpperCase().replace('_', ' ') : ev.factor || 'EVIDENCE'}
+                              </p>
+                              <p className="leading-relaxed mt-0.5">{ev.evidence_text || ev.description}</p>
+                              {ev.reference_years && ev.reference_years.length > 0 && (
                                 <p className="text-[10px] text-gray-500 mt-1">
-                                  Data Evidence: {ev.supporting_data}
+                                  Referenced CAT Years: {ev.reference_years.join(', ')}
                                 </p>
                               )}
                             </div>

@@ -10,6 +10,10 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
+PortableJSON = sa.JSON().with_variant(JSONB, "postgresql")
+PortableArray = sa.JSON().with_variant(ARRAY(sa.Text()), "postgresql")
+PortableUUID = sa.Uuid().with_variant(UUID(as_uuid=True), "postgresql")
+
 # revision identifiers, used by Alembic.
 revision: str = "001"
 down_revision: Union[str, None] = None
@@ -46,25 +50,28 @@ verified_by = sa.Enum("system", "ai", "manual", name="verified_by")
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    is_postgres = bind.dialect.name == "postgresql"
     # ── Create enum types ──────────────────────────────────────────────
-    paper_status.create(op.get_bind(), checkfirst=True)
-    source_type.create(op.get_bind(), checkfirst=True)
-    question_type.create(op.get_bind(), checkfirst=True)
-    section.create(op.get_bind(), checkfirst=True)
-    difficulty.create(op.get_bind(), checkfirst=True)
-    verification_status.create(op.get_bind(), checkfirst=True)
-    classified_by.create(op.get_bind(), checkfirst=True)
-    exam_type.create(op.get_bind(), checkfirst=True)
-    mock_verification_status.create(op.get_bind(), checkfirst=True)
-    attempt_status.create(op.get_bind(), checkfirst=True)
-    verification_type_enum.create(op.get_bind(), checkfirst=True)
-    verification_result.create(op.get_bind(), checkfirst=True)
-    verified_by.create(op.get_bind(), checkfirst=True)
+    if is_postgres:
+        paper_status.create(bind, checkfirst=True)
+        source_type.create(bind, checkfirst=True)
+        question_type.create(bind, checkfirst=True)
+        section.create(bind, checkfirst=True)
+        difficulty.create(bind, checkfirst=True)
+        verification_status.create(bind, checkfirst=True)
+        classified_by.create(bind, checkfirst=True)
+        exam_type.create(bind, checkfirst=True)
+        mock_verification_status.create(bind, checkfirst=True)
+        attempt_status.create(bind, checkfirst=True)
+        verification_type_enum.create(bind, checkfirst=True)
+        verification_result.create(bind, checkfirst=True)
+        verified_by.create(bind, checkfirst=True)
 
     # ── 1. users ───────────────────────────────────────────────────────
     op.create_table(
         "users",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
         sa.Column("email", sa.String(320), unique=True, nullable=False),
         sa.Column("password_hash", sa.String(256), nullable=False),
         sa.Column("is_active", sa.Boolean(), server_default="true", nullable=False),
@@ -76,8 +83,8 @@ def upgrade() -> None:
     # ── 2. user_settings ───────────────────────────────────────────────
     op.create_table(
         "user_settings",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("setting_key", sa.String(128), nullable=False),
         sa.Column("setting_value", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -87,8 +94,8 @@ def upgrade() -> None:
     # ── 3. encrypted_credentials ───────────────────────────────────────
     op.create_table(
         "encrypted_credentials",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("provider", sa.String(64), nullable=False),
         sa.Column("encrypted_key", sa.LargeBinary(), nullable=False),
         sa.Column("iv", sa.LargeBinary(), nullable=False),
@@ -102,8 +109,8 @@ def upgrade() -> None:
     # ── 4. papers ──────────────────────────────────────────────────────
     op.create_table(
         "papers",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("year", sa.Integer(), nullable=False),
         sa.Column("slot", sa.String(32), nullable=True),
         sa.Column("source_name", sa.String(256), nullable=True),
@@ -129,8 +136,8 @@ def upgrade() -> None:
     # ── 5. paper_sources ───────────────────────────────────────────────
     op.create_table(
         "paper_sources",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("paper_id", UUID(as_uuid=True), sa.ForeignKey("papers.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("paper_id", PortableUUID, sa.ForeignKey("papers.id", ondelete="CASCADE"), nullable=False),
         sa.Column("source_type", source_type, nullable=False),
         sa.Column("source_url", sa.String(2048), nullable=True),
         sa.Column("publisher", sa.String(256), nullable=True),
@@ -143,9 +150,9 @@ def upgrade() -> None:
     # ── 6. questions ───────────────────────────────────────────────────
     op.create_table(
         "questions",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("paper_id", UUID(as_uuid=True), sa.ForeignKey("papers.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("paper_id", PortableUUID, sa.ForeignKey("papers.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("question_number", sa.Integer(), nullable=False),
         sa.Column("question_text", sa.Text(), nullable=False),
         sa.Column("question_type", question_type, nullable=False),
@@ -177,8 +184,8 @@ def upgrade() -> None:
     # ── 7. question_options ────────────────────────────────────────────
     op.create_table(
         "question_options",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("question_id", UUID(as_uuid=True), sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("question_id", PortableUUID, sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False),
         sa.Column("option_label", sa.String(1), nullable=False),
         sa.Column("option_text", sa.Text(), nullable=False),
         sa.Column("is_correct", sa.Boolean(), server_default="false", nullable=False),
@@ -189,8 +196,8 @@ def upgrade() -> None:
     # ── 8. answer_keys ─────────────────────────────────────────────────
     op.create_table(
         "answer_keys",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("question_id", UUID(as_uuid=True), sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, unique=True),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("question_id", PortableUUID, sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, unique=True),
         sa.Column("correct_answer", sa.Text(), nullable=False),
         sa.Column("answer_source", sa.Text(), nullable=True),
         sa.Column("is_verified", sa.Boolean(), server_default="false", nullable=False),
@@ -201,8 +208,8 @@ def upgrade() -> None:
     # ── 9. solutions ──────────────────────────────────────────────────
     op.create_table(
         "solutions",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("question_id", UUID(as_uuid=True), sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, unique=True),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("question_id", PortableUUID, sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, unique=True),
         sa.Column("solution_text", sa.Text(), nullable=False),
         sa.Column("solution_source", sa.Text(), nullable=True),
         sa.Column("is_verified", sa.Boolean(), server_default="false", nullable=False),
@@ -213,7 +220,7 @@ def upgrade() -> None:
     # ── 10. topics ─────────────────────────────────────────────────────
     op.create_table(
         "topics",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
         sa.Column("section", section, nullable=False),
         sa.Column("topic_name", sa.String(256), nullable=False),
         sa.Column("subtopic_name", sa.String(256), nullable=True),
@@ -226,11 +233,11 @@ def upgrade() -> None:
     # ── 11. question_classifications ───────────────────────────────────
     op.create_table(
         "question_classifications",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("question_id", UUID(as_uuid=True), sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("topic_id", UUID(as_uuid=True), sa.ForeignKey("topics.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("question_id", PortableUUID, sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("topic_id", PortableUUID, sa.ForeignKey("topics.id", ondelete="CASCADE"), nullable=False),
         sa.Column("archetype", sa.String(256), nullable=True),
-        sa.Column("concept_tags", ARRAY(sa.Text()), nullable=True),
+        sa.Column("concept_tags", PortableArray, nullable=True),
         sa.Column("confidence", sa.Float(), nullable=True),
         sa.Column("classified_by", classified_by, nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -245,14 +252,14 @@ def upgrade() -> None:
     # ── 12. analysis_results ───────────────────────────────────────────
     op.create_table(
         "analysis_results",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("section", section, nullable=False),
         sa.Column("analysis_type", sa.String(128), nullable=False),
-        sa.Column("parameters", JSONB(), nullable=True),
-        sa.Column("result_data", JSONB(), nullable=False),
+        sa.Column("parameters", PortableJSON, nullable=True),
+        sa.Column("result_data", PortableJSON, nullable=False),
         sa.Column("methodology", sa.Text(), nullable=True),
-        sa.Column("data_coverage", JSONB(), nullable=True),
+        sa.Column("data_coverage", PortableJSON, nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
     op.create_index("ix_analysis_results_user_id", "analysis_results", ["user_id"])
@@ -262,10 +269,10 @@ def upgrade() -> None:
     # ── 13. predictions ────────────────────────────────────────────────
     op.create_table(
         "predictions",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("section", section, nullable=False),
-        sa.Column("topic_id", UUID(as_uuid=True), sa.ForeignKey("topics.id", ondelete="SET NULL"), nullable=False),
+        sa.Column("topic_id", PortableUUID, sa.ForeignKey("topics.id", ondelete="SET NULL"), nullable=False),
         sa.Column("predicted_archetype", sa.String(256), nullable=True),
         sa.Column("statistical_score", sa.Float(), nullable=True),
         sa.Column("confidence", sa.Float(), nullable=True),
@@ -290,10 +297,10 @@ def upgrade() -> None:
     # ── 14. prediction_evidence ────────────────────────────────────────
     op.create_table(
         "prediction_evidence",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("prediction_id", UUID(as_uuid=True), sa.ForeignKey("predictions.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("question_id", UUID(as_uuid=True), sa.ForeignKey("questions.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("analysis_id", UUID(as_uuid=True), sa.ForeignKey("analysis_results.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("prediction_id", PortableUUID, sa.ForeignKey("predictions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("question_id", PortableUUID, sa.ForeignKey("questions.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("analysis_id", PortableUUID, sa.ForeignKey("analysis_results.id", ondelete="SET NULL"), nullable=True),
         sa.Column("evidence_type", sa.String(128), nullable=False),
         sa.Column("evidence_text", sa.Text(), nullable=True),
         sa.Column("weight", sa.Float(), nullable=True),
@@ -306,17 +313,17 @@ def upgrade() -> None:
     # ── 15. mock_exams ─────────────────────────────────────────────────
     op.create_table(
         "mock_exams",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("exam_type", exam_type, nullable=False),
         sa.Column("title", sa.String(512), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("section", section, nullable=True),
-        sa.Column("topic_id", UUID(as_uuid=True), sa.ForeignKey("topics.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("topic_id", PortableUUID, sa.ForeignKey("topics.id", ondelete="SET NULL"), nullable=True),
         sa.Column("total_questions", sa.Integer(), nullable=False),
         sa.Column("total_marks", sa.Float(), nullable=False),
         sa.Column("duration_minutes", sa.Integer(), nullable=False),
-        sa.Column("marking_scheme", JSONB(), nullable=True),
+        sa.Column("marking_scheme", PortableJSON, nullable=True),
         sa.Column("verification_status", mock_verification_status, server_default="pending", nullable=False),
         sa.Column("questions_verified", sa.Integer(), server_default="0", nullable=False),
         sa.Column("questions_failed", sa.Integer(), server_default="0", nullable=False),
@@ -328,12 +335,12 @@ def upgrade() -> None:
     # ── 16. mock_questions ─────────────────────────────────────────────
     op.create_table(
         "mock_questions",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("mock_exam_id", UUID(as_uuid=True), sa.ForeignKey("mock_exams.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("mock_exam_id", PortableUUID, sa.ForeignKey("mock_exams.id", ondelete="CASCADE"), nullable=False),
         sa.Column("question_number", sa.Integer(), nullable=False),
         sa.Column("question_text", sa.Text(), nullable=False),
         sa.Column("question_type", question_type, nullable=False),
-        sa.Column("options", JSONB(), nullable=True),
+        sa.Column("options", PortableJSON, nullable=True),
         sa.Column("correct_answer", sa.Text(), nullable=False),
         sa.Column("solution_text", sa.Text(), nullable=True),
         sa.Column("topic", sa.String(256), nullable=True),
@@ -343,7 +350,7 @@ def upgrade() -> None:
         sa.Column("marks_positive", sa.Float(), nullable=False),
         sa.Column("marks_negative", sa.Float(), nullable=False),
         sa.Column("verification_status", mock_verification_status, server_default="pending", nullable=False),
-        sa.Column("verification_details", JSONB(), nullable=True),
+        sa.Column("verification_details", PortableJSON, nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
     op.create_index("ix_mock_questions_mock_exam_id", "mock_questions", ["mock_exam_id"])
@@ -351,16 +358,16 @@ def upgrade() -> None:
     # ── 17. exam_attempts ──────────────────────────────────────────────
     op.create_table(
         "exam_attempts",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("mock_exam_id", UUID(as_uuid=True), sa.ForeignKey("mock_exams.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("mock_exam_id", PortableUUID, sa.ForeignKey("mock_exams.id", ondelete="CASCADE"), nullable=False),
         sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("time_spent_seconds", sa.Integer(), nullable=True),
-        sa.Column("responses", JSONB(), nullable=True),
+        sa.Column("responses", PortableJSON, nullable=True),
         sa.Column("score", sa.Float(), nullable=True),
         sa.Column("max_score", sa.Float(), nullable=False),
-        sa.Column("section_scores", JSONB(), nullable=True),
+        sa.Column("section_scores", PortableJSON, nullable=True),
         sa.Column("status", attempt_status, server_default="in_progress", nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
@@ -370,12 +377,12 @@ def upgrade() -> None:
     # ── 18. verification_records ───────────────────────────────────────
     op.create_table(
         "verification_records",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("question_id", UUID(as_uuid=True), sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=True),
-        sa.Column("mock_question_id", UUID(as_uuid=True), sa.ForeignKey("mock_questions.id", ondelete="CASCADE"), nullable=True),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("question_id", PortableUUID, sa.ForeignKey("questions.id", ondelete="CASCADE"), nullable=True),
+        sa.Column("mock_question_id", PortableUUID, sa.ForeignKey("mock_questions.id", ondelete="CASCADE"), nullable=True),
         sa.Column("verification_type", verification_type_enum, nullable=False),
         sa.Column("result", verification_result, nullable=False),
-        sa.Column("details", JSONB(), nullable=True),
+        sa.Column("details", PortableJSON, nullable=True),
         sa.Column("verified_by", verified_by, nullable=False),
         sa.Column("verified_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
@@ -385,12 +392,12 @@ def upgrade() -> None:
     # ── 19. audit_logs ─────────────────────────────────────────────────
     op.create_table(
         "audit_logs",
-        sa.Column("id", UUID(as_uuid=True), server_default=sa.text("gen_random_uuid()"), primary_key=True),
-        sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", PortableUUID, server_default=sa.text("gen_random_uuid()"), primary_key=True),
+        sa.Column("user_id", PortableUUID, sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
         sa.Column("action", sa.String(256), nullable=False),
         sa.Column("entity_type", sa.String(128), nullable=True),
-        sa.Column("entity_id", UUID(as_uuid=True), nullable=True),
-        sa.Column("details", JSONB(), nullable=True),
+        sa.Column("entity_id", PortableUUID, nullable=True),
+        sa.Column("details", PortableJSON, nullable=True),
         sa.Column("ip_address", sa.String(45), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
@@ -421,16 +428,18 @@ def downgrade() -> None:
     op.drop_table("users")
 
     # Drop enum types.
-    verified_by.drop(op.get_bind(), checkfirst=True)
-    verification_result.drop(op.get_bind(), checkfirst=True)
-    verification_type_enum.drop(op.get_bind(), checkfirst=True)
-    attempt_status.drop(op.get_bind(), checkfirst=True)
-    mock_verification_status.drop(op.get_bind(), checkfirst=True)
-    exam_type.drop(op.get_bind(), checkfirst=True)
-    classified_by.drop(op.get_bind(), checkfirst=True)
-    verification_status.drop(op.get_bind(), checkfirst=True)
-    difficulty.drop(op.get_bind(), checkfirst=True)
-    section.drop(op.get_bind(), checkfirst=True)
-    question_type.drop(op.get_bind(), checkfirst=True)
-    source_type.drop(op.get_bind(), checkfirst=True)
-    paper_status.drop(op.get_bind(), checkfirst=True)
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        verified_by.drop(bind, checkfirst=True)
+        verification_result.drop(bind, checkfirst=True)
+        verification_type_enum.drop(bind, checkfirst=True)
+        attempt_status.drop(bind, checkfirst=True)
+        mock_verification_status.drop(bind, checkfirst=True)
+        exam_type.drop(bind, checkfirst=True)
+        classified_by.drop(bind, checkfirst=True)
+        verification_status.drop(bind, checkfirst=True)
+        difficulty.drop(bind, checkfirst=True)
+        section.drop(bind, checkfirst=True)
+        question_type.drop(bind, checkfirst=True)
+        source_type.drop(bind, checkfirst=True)
+        paper_status.drop(bind, checkfirst=True)

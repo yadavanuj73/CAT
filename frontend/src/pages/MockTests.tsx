@@ -7,7 +7,7 @@ import {
   Play,
   RotateCcw,
 } from 'lucide-react';
-import type { MockExam, MockQuestion, QuestionOption } from '../types';
+import type { MockExam, MockQuestion } from '../types';
 
 export const MockTests: React.FC = () => {
   const { data: mocksData, isLoading } = useMockExams();
@@ -57,8 +57,8 @@ export const MockTests: React.FC = () => {
           question_number: idx + 1,
           is_correct: idx !== 1,
           user_answer: answers[q.id] || 'Unattempted',
-          correct_answer: q.answer_key?.correct_option || String(q.answer_key?.correct_value || 'A'),
-          solution: q.solution?.steps?.join(' ') || q.solution?.method || 'Detailed verified analytical derivation.',
+          correct_answer: q.correct_answer || q.answer_key?.correct_option || String(q.answer_key?.correct_value || 'A'),
+          solution: q.solution_text || q.solution?.steps?.join(' ') || q.solution?.method || 'Detailed verified analytical derivation.',
         })),
       });
     }
@@ -105,9 +105,9 @@ export const MockTests: React.FC = () => {
                 <p className="text-xs text-gray-900 font-medium leading-relaxed">{q.question_text}</p>
 
                 {/* MCQ Options */}
-                {q.question_type === 'mcq' && q.options && (
+                {q.question_type.toLowerCase() === 'mcq' && q.options && (
                   <div className="space-y-2 pt-1">
-                    {q.options.map((opt: QuestionOption) => (
+                    {q.options.map((opt) => (
                       <button
                         key={opt.label}
                         type="button"
@@ -128,7 +128,7 @@ export const MockTests: React.FC = () => {
                 )}
 
                 {/* TITA Input */}
-                {q.question_type === 'tita' && (
+                {q.question_type.toLowerCase() === 'tita' && (
                   <div className="pt-1">
                     <input
                       type="text"

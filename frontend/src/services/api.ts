@@ -68,8 +68,11 @@ api.interceptors.response.use(
 
 export const authApi = {
   register: async (data: RegisterRequest): Promise<User> => {
-    const res = await api.post<User>('/auth/register', data);
-    return res.data;
+    const res = await api.post<{ access_token: string; user: User }>('/auth/register', data);
+    if (res.data.access_token) {
+      localStorage.setItem('access_token', res.data.access_token);
+    }
+    return res.data.user;
   },
 
   login: async (data: LoginRequest): Promise<{ access_token: string; user: User }> => {
@@ -239,13 +242,13 @@ export const predictionsApi = {
     topic?: string;
     min_confidence?: number;
   }): Promise<Prediction[]> => {
-    const res = await api.get<Prediction[]>('/predictions', { params });
-    return res.data;
+    const res = await api.get<{ predictions: Prediction[] }>('/predictions', { params });
+    return res.data.predictions || [];
   },
 
   generate: async (data: GeneratePredictionsRequest): Promise<Prediction[]> => {
-    const res = await api.post<Prediction[]>('/predictions/generate', data);
-    return res.data;
+    const res = await api.post<{ predictions: Prediction[] }>('/predictions/generate', data);
+    return res.data.predictions || [];
   },
 
   getEvidence: async (id: string): Promise<Prediction> => {
