@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   UploadCloud,
+  Database,
+  History,
   LineChart,
   BrainCircuit,
   GraduationCap,
@@ -11,7 +13,9 @@ import {
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/upload', label: 'Upload PYQs', icon: UploadCloud },
+  { to: '/upload', label: 'Upload Papers', icon: UploadCloud },
+  { to: '/shared-bank', label: 'Shared Question Bank', icon: Database },
+  { to: '/contributions', label: 'Contribution History', icon: History },
   { to: '/analysis', label: 'Paper Analysis', icon: LineChart },
   { to: '/predictions', label: 'CAT 2026 Predictions', icon: BrainCircuit },
   { to: '/mocks', label: 'Mock Tests', icon: GraduationCap },

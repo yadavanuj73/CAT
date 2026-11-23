@@ -9,6 +9,8 @@ import { PaperAnalysis } from './pages/PaperAnalysis';
 import { Predictions } from './pages/Predictions';
 import { MockTests } from './pages/MockTests';
 import { Settings } from './pages/Settings';
+import { SharedQuestionBank } from './pages/SharedQuestionBank';
+import { ContributionHistory } from './pages/ContributionHistory';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 
@@ -58,6 +60,8 @@ export const App: React.FC = () => {
             >
               <Route index element={<Dashboard />} />
               <Route path="upload" element={<UploadPapers />} />
+              <Route path="shared-bank" element={<SharedQuestionBank />} />
+              <Route path="contributions" element={<ContributionHistory />} />
               <Route path="analysis" element={<PaperAnalysis />} />
               <Route path="predictions" element={<Predictions />} />
               <Route path="mocks" element={<MockTests />} />

@@ -35,6 +35,9 @@ export function useUploadPaper() {
         slot?: string;
         section?: string;
         source?: string;
+        allow_sharing?: boolean;
+        terms_accepted?: boolean;
+        notes?: string;
       };
     }) => papersApi.upload(file, metadata),
     onSuccess: () => {

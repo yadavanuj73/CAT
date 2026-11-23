@@ -331,3 +331,106 @@ export interface QuestionFilters {
   page?: number;
   page_size?: number;
 }
+
+
+// ─── Shared Corpus & Deduplication Types ─────────────────────────────────────
+
+export interface SharedHistoricalPaper {
+  id: string;
+  year: number;
+  slot: string | null;
+  paper_title: string;
+  file_fingerprint: string;
+  total_questions: number;
+  is_verified: boolean;
+  source_provenance: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SharedQuestionOption {
+  id: string;
+  option_label: string;
+  option_text: string;
+  is_correct: boolean;
+}
+
+export interface SharedQuestionSource {
+  id: string;
+  year: number;
+  slot: string | null;
+  question_number: number | null;
+  source_name: string | null;
+  source_type: string;
+  provenance_notes: string | null;
+}
+
+export interface SharedQuestion {
+  id: string;
+  canonical_hash: string;
+  question_number: number;
+  question_text: string;
+  question_type: string;
+  section: string;
+  difficulty: string;
+  marks_positive: number;
+  marks_negative: number;
+  has_image: boolean;
+  has_table: boolean;
+  has_passage: boolean;
+  passage_text: string | null;
+  dataset_text: string | null;
+  primary_year: number;
+  primary_slot: string | null;
+  verification_status: string;
+  verification_confidence: number;
+  options: SharedQuestionOption[];
+  correct_answer: string | null;
+  solution_text: string | null;
+  sources: SharedQuestionSource[];
+  created_at: string;
+}
+
+export interface SharedQuestionFilters {
+  section?: string;
+  year?: number;
+  slot?: string;
+  difficulty?: string;
+  question_type?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SharedCorpusStats {
+  total_verified_papers: number;
+  total_unique_verified_questions: number;
+  total_duplicates_prevented: number;
+  total_sources_linked: number;
+  section_breakdown: Record<string, number>;
+  year_breakdown: Record<string, number>;
+  topic_breakdown: Array<Record<string, any>>;
+  recent_approved_questions: SharedQuestion[];
+}
+
+export interface UserProcessingHistoryItem {
+  id: string;
+  paper_id: string;
+  stage: string;
+  status: string;
+  details?: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface PaperContributionSummary {
+  paper_id: string;
+  year: number;
+  slot: string | null;
+  status: string;
+  total_extracted: number;
+  total_verified: number;
+  total_duplicate: number;
+  total_rejected: number;
+  promoted_to_shared: number;
+  shared_paper_id: string | null;
+  sharing_status: string;
+}

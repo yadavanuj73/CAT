@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # ── Import all models so metadata is populated ────────────────────────
 from app.models import Base  # noqa: F401  (registers all tables)
+from app.config import settings
 
 # Alembic Config object (provides access to alembic.ini values).
 config = context.config
@@ -28,8 +29,8 @@ if config.config_file_name is not None:
 # Target metadata for autogenerate support.
 target_metadata = Base.metadata
 
-# Allow overriding the DB URL via environment variable.
-DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
+# Allow overriding the DB URL via environment variable or app settings.
+DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL") or os.getenv("DATABASE_URL") or settings.DATABASE_URL
 if DATABASE_URL:
     config.set_main_option("sqlalchemy.url", DATABASE_URL)
 

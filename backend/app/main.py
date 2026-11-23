@@ -18,6 +18,7 @@ from app.routers import (
     papers_router,
     predictions_router,
     questions_router,
+    shared_router,
 )
 from app.security.redaction import redact_secrets
 from app.services.ingestion_service import recover_stalled_paper_extractions
@@ -82,3 +83,4 @@ app.include_router(questions_router, prefix="/api")
 app.include_router(analysis_router, prefix="/api")
 app.include_router(predictions_router, prefix="/api")
 app.include_router(mock_exams_router, prefix="/api")
+app.include_router(shared_router, prefix="/api")

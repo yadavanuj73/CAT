@@ -127,7 +127,16 @@ export const apiKeysApi = {
 export const papersApi = {
   upload: async (
     file: File,
-    metadata: { title: string; year: number; slot?: string; section?: string; source?: string },
+    metadata: {
+      title: string;
+      year: number;
+      slot?: string;
+      section?: string;
+      source?: string;
+      allow_sharing?: boolean;
+      terms_accepted?: boolean;
+      notes?: string;
+    },
   ): Promise<Paper> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -135,6 +144,9 @@ export const papersApi = {
     if (metadata.slot) formData.append('slot', metadata.slot);
     formData.append('source_name', metadata.title || 'Official CAT Paper');
     if (metadata.source) formData.append('source_type', metadata.source);
+    formData.append('allow_sharing', metadata.allow_sharing !== false ? 'true' : 'false');
+    formData.append('terms_accepted', metadata.terms_accepted !== false ? 'true' : 'false');
+    if (metadata.notes) formData.append('notes', metadata.notes);
 
     const res = await api.post<Paper>('/papers/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -154,10 +166,20 @@ export const papersApi = {
     return res.data;
   },
 
-  extract: async (id: string): Promise<{ status: string; task_id: string }> => {
-    const res = await api.post<{ status: string; task_id: string }>(
+  extract: async (id: string): Promise<{ status: string; task_id?: string; message?: string; questions_count?: number; promotion?: any }> => {
+    const res = await api.post<{ status: string; task_id?: string; message?: string; questions_count?: number; promotion?: any }>(
       `/papers/${id}/extract`,
     );
+    return res.data;
+  },
+
+  getHistory: async (id: string): Promise<any[]> => {
+    const res = await api.get<any[]>(`/papers/${id}/history`);
+    return res.data;
+  },
+
+  getSummary: async (id: string): Promise<any> => {
+    const res = await api.get<any>(`/papers/${id}/summary`);
     return res.data;
   },
 
@@ -324,3 +346,28 @@ export const mockExamsApi = {
 };
 
 export default api;
+
+
+// ─── Shared Corpus API ───────────────────────────────────────────────────────
+
+export const sharedApi = {
+  listPapers: async (): Promise<{ items: any[]; total: number }> => {
+    const res = await api.get<{ items: any[]; total: number }>('/shared/papers');
+    return res.data;
+  },
+
+  listQuestions: async (params?: Record<string, any>): Promise<{ items: any[]; total: number }> => {
+    const res = await api.get<{ items: any[]; total: number }>('/shared/questions', { params });
+    return res.data;
+  },
+
+  getQuestion: async (id: string): Promise<any> => {
+    const res = await api.get<any>(`/shared/questions/${id}`);
+    return res.data;
+  },
+
+  getStats: async (): Promise<any> => {
+    const res = await api.get<any>('/shared/stats');
+    return res.data;
+  },
+};

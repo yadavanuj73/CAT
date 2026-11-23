@@ -617,3 +617,105 @@ CREATE POLICY audit_logs_insert ON audit_logs
 CREATE POLICY audit_logs_service_bypass ON audit_logs
     FOR ALL
     USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+-- =========================================================================
+-- 20. user_upload_permissions
+-- =========================================================================
+ALTER TABLE user_upload_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_upload_permissions FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY user_upload_permissions_select ON user_upload_permissions
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY user_upload_permissions_insert ON user_upload_permissions
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY user_upload_permissions_update ON user_upload_permissions
+    FOR UPDATE USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY user_upload_permissions_delete ON user_upload_permissions
+    FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY user_upload_permissions_service_bypass ON user_upload_permissions
+    FOR ALL
+    USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+-- =========================================================================
+-- 21. user_processing_history
+-- =========================================================================
+ALTER TABLE user_processing_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_processing_history FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY user_processing_history_select ON user_processing_history
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY user_processing_history_insert ON user_processing_history
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY user_processing_history_service_bypass ON user_processing_history
+    FOR ALL
+    USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+-- =========================================================================
+-- 22. Shared Question Bank & Analytics (All authenticated users can SELECT)
+-- =========================================================================
+ALTER TABLE shared_historical_papers ENABLE ROW LEVEL SECURITY;
+CREATE POLICY shared_papers_select_all ON shared_historical_papers
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY shared_papers_service_all ON shared_historical_papers
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE shared_verified_questions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY shared_questions_select_all ON shared_verified_questions
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY shared_questions_service_all ON shared_verified_questions
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE shared_question_options ENABLE ROW LEVEL SECURITY;
+CREATE POLICY shared_options_select_all ON shared_question_options
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY shared_options_service_all ON shared_question_options
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE shared_answer_keys ENABLE ROW LEVEL SECURITY;
+CREATE POLICY shared_answer_keys_select_all ON shared_answer_keys
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY shared_answer_keys_service_all ON shared_answer_keys
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE shared_solutions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY shared_solutions_select_all ON shared_solutions
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY shared_solutions_service_all ON shared_solutions
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE shared_question_sources ENABLE ROW LEVEL SECURITY;
+CREATE POLICY shared_sources_select_all ON shared_question_sources
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY shared_sources_service_all ON shared_question_sources
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE shared_question_topics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY shared_topics_select_all ON shared_question_topics
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY shared_topics_service_all ON shared_question_topics
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE topic_frequency_statistics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY topic_freq_select_all ON topic_frequency_statistics
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY topic_freq_service_all ON topic_frequency_statistics
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE yearly_trends ENABLE ROW LEVEL SECURITY;
+CREATE POLICY yearly_trends_select_all ON yearly_trends
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY yearly_trends_service_all ON yearly_trends
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');
+
+ALTER TABLE difficulty_statistics ENABLE ROW LEVEL SECURITY;
+CREATE POLICY diff_stats_select_all ON difficulty_statistics
+    FOR SELECT TO authenticated USING (true);
+CREATE POLICY diff_stats_service_all ON difficulty_statistics
+    FOR ALL USING (current_setting('request.jwt.claim.role', true) = 'service_role');

@@ -1,6 +1,6 @@
 """
 Statistical Analytical Engine for CAT Examination Intelligence.
-Analyzes VARC, DILR, and QA separately.
+Analyzes VARC, DILR, and QA separately based strictly on verified historical questions.
 Computes:
 - Year-wise topic frequencies
 - Slot-wise distributions
@@ -8,7 +8,8 @@ Computes:
 - MCQ vs TITA distributions
 - Recency-decay weighted topic importance
 - Historical shifts across examination eras
-Only verified historical records are analyzed.
+Only verified historical records in the shared verified question bank (and authorized user verified uploads) are analyzed.
+Never fabricates historical statistics.
 """
 
 from collections import defaultdict
@@ -19,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.analysis import AnalysisResult
 from app.models.question import Question, Section, VerificationStatus
+from app.models.shared_corpus import SharedVerifiedQuestion
 from app.schemas.analysis import (
     DifficultyDistribution,
     QuestionTypeDistribution,
@@ -61,7 +63,6 @@ CANONICAL_TOPICS = {
         ("Verbal Ability", "Odd One Out / Para Completion"),
     ],
 }
-
 
 # Keyword mapping for robust CAT topic classification
 TOPIC_KEYWORDS = {
@@ -158,29 +159,68 @@ def classify_text_to_topic(text: str, section: str) -> tuple[str, str]:
 
 async def run_section_analysis(
     db: AsyncSession,
-    user_id: uuid.UUID,
-    section: str,
+    user_id: Optional[uuid.UUID] = None,
+    section: str = "QA",
     decay_factor: float = 0.85
 ) -> SectionAnalysisSummary:
     """
     Perform deep statistical analysis on verified questions in a section.
+    Queries verified questions from the shared question bank and user's verified questions.
     Applies exponential recency weighting: weight = decay_factor ^ (current_year - exam_year).
+    STRICT GATE: Only verified questions are permitted.
     """
-    stmt = (
-        select(Question)
+    # 1. Fetch verified questions from the shared verified question bank
+    shared_stmt = (
+        select(SharedVerifiedQuestion)
         .where(
-            Question.user_id == user_id,
-            Question.section == Section(section),
-            Question.verification_status == VerificationStatus.VERIFIED,
+            SharedVerifiedQuestion.section == Section(section),
+            SharedVerifiedQuestion.verification_status == "verified",
         )
-        .order_by(Question.year.desc())
+        .order_by(SharedVerifiedQuestion.primary_year.desc())
     )
-    result = await db.execute(stmt)
-    questions = result.scalars().all()
+    shared_res = await db.execute(shared_stmt)
+    shared_questions = shared_res.scalars().all()
 
-    # STRICT GATE: Only verified questions are permitted into the trusted analytical dataset.
-    # Unverified or rejected questions are strictly excluded.
-    if not questions:
+    # 2. Fetch user's verified questions (excluding unverified)
+    user_questions = []
+    if user_id:
+        user_stmt = (
+            select(Question)
+            .where(
+                Question.user_id == user_id,
+                Question.section == Section(section),
+                Question.verification_status == VerificationStatus.VERIFIED,
+            )
+            .order_by(Question.year.desc())
+        )
+        user_res = await db.execute(user_stmt)
+        user_questions = user_res.scalars().all()
+
+    # Normalize question representations to prevent double counting
+    questions_map = {}
+    for sq in shared_questions:
+        norm_key = sq.canonical_hash or sq.question_text.strip()
+        questions_map[norm_key] = {
+            "year": sq.primary_year,
+            "text": sq.question_text,
+            "difficulty": sq.difficulty.value if hasattr(sq.difficulty, "value") else str(sq.difficulty),
+            "type": sq.question_type.value if hasattr(sq.question_type, "value") else str(sq.question_type),
+        }
+
+    for uq in user_questions:
+        norm_key = uq.canonical_hash or uq.question_text.strip()
+        if norm_key not in questions_map:
+            questions_map[norm_key] = {
+                "year": uq.year,
+                "text": uq.question_text,
+                "difficulty": uq.difficulty.value if hasattr(uq.difficulty, "value") else str(uq.difficulty),
+                "type": uq.question_type.value if hasattr(uq.question_type, "value") else str(uq.question_type),
+            }
+
+    all_verified = list(questions_map.values())
+
+    # STRICT GATE: If 0 verified questions exist, report insufficient data explicitly
+    if not all_verified:
         return SectionAnalysisSummary(
             section=section,
             total_verified_questions=0,
@@ -206,34 +246,36 @@ async def run_section_analysis(
     mcq_cnt = tita_cnt = 0
     years_seen = set()
 
-    for q in questions:
-        years_seen.add(q.year)
-        topic, subtopic = classify_text_to_topic(q.question_text, section)
+    for q in all_verified:
+        q_year = q["year"]
+        years_seen.add(q_year)
+        topic, subtopic = classify_text_to_topic(q["text"], section)
         key = (topic, subtopic)
 
         topic_counts[key] += 1
-        topic_year_dist[key][str(q.year)] += 1
+        topic_year_dist[key][str(q_year)] += 1
 
         # Exponential recency decay
-        age = max(0, current_year - q.year)
+        age = max(0, current_year - q_year)
         weight = decay_factor ** age
         topic_weighted_scores[key] += weight
 
         # Difficulty
-        if q.difficulty.value == "easy":
+        diff = q["difficulty"].lower()
+        if diff == "easy":
             easy_cnt += 1
-        elif q.difficulty.value == "hard":
+        elif diff == "hard":
             hard_cnt += 1
         else:
             med_cnt += 1
 
         # Type
-        if q.question_type.value == "MCQ":
+        if q["type"].upper() == "MCQ":
             mcq_cnt += 1
         else:
             tita_cnt += 1
 
-    total_q = len(questions) or 1
+    total_q = len(all_verified) or 1
     total_weight = sum(topic_weighted_scores.values()) or 1.0
 
     # Build topic frequencies list
@@ -253,30 +295,31 @@ async def run_section_analysis(
             )
         )
 
-    # Persist analysis result for reproducibility
-    res_record = AnalysisResult(
-        user_id=user_id,
-        section=Section(section),
-        analysis_type="topic_and_difficulty_summary",
-        parameters={"decay_factor": decay_factor},
-        result_data={
-            "total_questions": len(questions),
-            "years": sorted(list(years_seen)),
-            "easy": easy_cnt,
-            "medium": med_cnt,
-            "hard": hard_cnt,
-            "mcq": mcq_cnt,
-            "tita": tita_cnt,
-        },
-        methodology=f"Exponential recency decay with lambda={decay_factor} on historical CAT papers (2000-2025).",
-        data_coverage={"years_included": sorted(list(years_seen))},
-    )
-    db.add(res_record)
-    await db.commit()
+    # Persist analysis result if user_id present
+    if user_id:
+        res_record = AnalysisResult(
+            user_id=user_id,
+            section=Section(section),
+            analysis_type="topic_and_difficulty_summary",
+            parameters={"decay_factor": decay_factor},
+            result_data={
+                "total_questions": len(all_verified),
+                "years": sorted(list(years_seen)),
+                "easy": easy_cnt,
+                "medium": med_cnt,
+                "hard": hard_cnt,
+                "mcq": mcq_cnt,
+                "tita": tita_cnt,
+            },
+            methodology=f"Exponential recency decay with lambda={decay_factor} on authentic verified CAT papers.",
+            data_coverage={"years_included": sorted(list(years_seen))},
+        )
+        db.add(res_record)
+        await db.commit()
 
     return SectionAnalysisSummary(
         section=section,
-        total_verified_questions=len(questions),
+        total_verified_questions=len(all_verified),
         years_covered=sorted(list(years_seen)),
         top_topics=topic_frequencies[:10],
         difficulty_distribution=DifficultyDistribution(
@@ -294,11 +337,10 @@ async def run_section_analysis(
             tita_pct=round((tita_cnt / total_q) * 100, 1),
         ),
         recurring_archetypes=[
+            f"{t} - {s}" for (t, s), _ in sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+        ] or [
             "Algebra - Logarithm properties with variable domains",
             "Arithmetic - Circular track relative velocity with varying starts",
-            "Geometry - Tangents and cyclic quadrilaterals with area ratios",
-            "DILR - 4-Set Venn diagrams with indeterminate minimum/maximum limits",
-            "VARC - Inference from academic philosophy passages with dual tone",
         ],
-        methodology=f"Recency-weighted decay (lambda={decay_factor}) analyzing verified questions across {len(years_seen)} years.",
+        methodology=f"Recency-weighted decay (lambda={decay_factor}) analyzing {len(all_verified)} verified questions across {len(years_seen)} examination years.",
     )

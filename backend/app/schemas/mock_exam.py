@@ -58,6 +58,7 @@ class MockGenerateRequest(BaseModel):
     title: Optional[str] = None
     section: Optional[str] = None  # VARC, DILR, QA
     topic_name: Optional[str] = None
+    difficulty: Optional[str] = None  # easy, medium, hard
     question_count: int = Field(default=22, ge=5, le=66)
     duration_minutes: int = Field(default=40, ge=10, le=120)
 

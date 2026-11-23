@@ -81,6 +81,16 @@ class Paper(TimestampMixin, Base):
     extraction_confidence: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     total_questions: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    allow_sharing: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    sharing_status: Mapped[str] = mapped_column(String(32), default="pending", server_default="pending", nullable=False)
+    error_details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    duplicate_of_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    shared_paper_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("shared_historical_papers.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     __table_args__ = (
         CheckConstraint("year >= 2000 AND year <= 2025", name="ck_papers_year_range"),

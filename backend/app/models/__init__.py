@@ -53,6 +53,39 @@ from .audit import (
     VerifiedBy,
 )
 
+# ── Shared Corpus ──────────────────────────────────────────────────────
+from .shared_corpus import (
+    SharedHistoricalPaper,
+    SharedVerifiedQuestion,
+    SharedQuestionOption,
+    SharedAnswerKey,
+    SharedSolution,
+    SharedQuestionSource,
+    SharedQuestionTopic,
+)
+
+# ── Deduplication ──────────────────────────────────────────────────────
+from .deduplication import (
+    PaperFingerprint,
+    QuestionFingerprint,
+    DuplicateDetectionRecord,
+    QuestionSimilarityReview,
+    ReviewQueue,
+)
+
+# ── User History & Permissions ─────────────────────────────────────────
+from .user_history import (
+    UserUploadPermission,
+    UserProcessingHistory,
+)
+
+# ── Statistics ─────────────────────────────────────────────────────────
+from .statistics import (
+    TopicFrequencyStatistic,
+    YearlyTrend,
+    DifficultyStatistic,
+)
+
 __all__ = [
     # Base
     "Base",
@@ -97,4 +130,25 @@ __all__ = [
     "VerificationResult",
     "VerifiedBy",
     "AuditLog",
+    # Shared Corpus
+    "SharedHistoricalPaper",
+    "SharedVerifiedQuestion",
+    "SharedQuestionOption",
+    "SharedAnswerKey",
+    "SharedSolution",
+    "SharedQuestionSource",
+    "SharedQuestionTopic",
+    # Deduplication
+    "PaperFingerprint",
+    "QuestionFingerprint",
+    "DuplicateDetectionRecord",
+    "QuestionSimilarityReview",
+    "ReviewQueue",
+    # User History & Permissions
+    "UserUploadPermission",
+    "UserProcessingHistory",
+    # Statistics
+    "TopicFrequencyStatistic",
+    "YearlyTrend",
+    "DifficultyStatistic",
 ]

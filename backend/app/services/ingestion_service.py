@@ -1,7 +1,7 @@
 """
 Historical Paper Ingestion Service.
 Handles document upload, magic byte validation, SHA-256 deduplication,
-source provenance recording, and file persistence.
+source provenance recording, user consent tracking, and file persistence.
 Treats all uploaded documents as untrusted data.
 """
 
@@ -9,12 +9,15 @@ import hashlib
 import os
 import uuid
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Tuple
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
+from app.models.deduplication import DuplicateDetectionRecord
 from app.models.paper import Paper, PaperSource, PaperStatus, SourceType
+from app.models.user_history import UserProcessingHistory, UserUploadPermission
+from app.services.deduplication_service import check_exact_paper_duplicate, register_paper_fingerprint
 
 UPLOAD_DIR = Path("uploads/papers")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -74,23 +77,29 @@ async def register_paper(
     db: AsyncSession,
     user_id: uuid.UUID,
     year: int,
-    slot: str,
+    slot: Optional[str],
     source_name: str,
     source_type: str,
     original_filename: str,
     file_path: str,
     file_hash: str,
-    source_url: str = None,
-    notes: str = None
+    source_url: Optional[str] = None,
+    allow_sharing: bool = True,
+    terms_accepted: bool = True,
+    notes: Optional[str] = None
 ) -> Paper:
-    """Register paper record and provenance in database."""
-    # Check for duplicate upload by hash
+    """Register paper record, user consent, processing history, and provenance in database."""
+    # 1. Check for duplicate upload by this specific user
     existing = await db.execute(
         select(Paper).where(Paper.user_id == user_id, Paper.file_hash == file_hash)
     )
     dup = existing.scalar_one_or_none()
     if dup:
         return dup
+
+    # 2. Level 1 Duplicate Detection against the Global Shared Question Bank
+    shared_dup = await check_exact_paper_duplicate(db, file_hash)
+    is_shared_duplicate = shared_dup is not None
 
     paper = Paper(
         user_id=user_id,
@@ -100,22 +109,69 @@ async def register_paper(
         original_filename=original_filename,
         file_path=file_path,
         file_hash=file_hash,
-        status=PaperStatus.UPLOADED,
-        extraction_confidence=0.0,
-        total_questions=0,
-        notes=notes,
+        status=PaperStatus.EXTRACTED if is_shared_duplicate else PaperStatus.UPLOADED,
+        extraction_confidence=1.0 if is_shared_duplicate else 0.0,
+        total_questions=shared_dup.total_questions if is_shared_duplicate else 0,
+        allow_sharing=allow_sharing,
+        sharing_status="approved" if is_shared_duplicate and allow_sharing else ("pending" if allow_sharing else "private"),
+        is_duplicate=is_shared_duplicate,
+        duplicate_of_id=shared_dup.id if is_shared_duplicate else None,
+        shared_paper_id=shared_dup.id if is_shared_duplicate else None,
+        notes=f"Identical paper already in shared bank. Reused verified questions." if is_shared_duplicate else notes,
     )
     db.add(paper)
     await db.flush()
 
+    # Record source provenance
     source = PaperSource(
         paper_id=paper.id,
         source_type=SourceType(source_type.lower()) if source_type.lower() in [s.value for s in SourceType] else SourceType.OTHER,
         source_url=source_url,
         publisher=source_name,
-        is_verified=False,
+        is_verified=is_shared_duplicate,
     )
     db.add(source)
+
+    # Record explicit user consent permission
+    permission = UserUploadPermission(
+        user_id=user_id,
+        paper_id=paper.id,
+        allow_sharing=allow_sharing,
+        terms_accepted=terms_accepted,
+        legal_eligibility_confirmed=True,
+    )
+    db.add(permission)
+
+    # Record processing history
+    stage_status = "duplicate_detected" if is_shared_duplicate else "completed"
+    details = {
+        "file_hash": file_hash,
+        "is_duplicate": is_shared_duplicate,
+        "shared_paper_id": str(shared_dup.id) if shared_dup else None,
+        "reused_questions": shared_dup.total_questions if shared_dup else 0,
+    }
+    history = UserProcessingHistory(
+        user_id=user_id,
+        paper_id=paper.id,
+        stage="upload_validation",
+        status=stage_status,
+        details=details,
+    )
+    db.add(history)
+
+    # Record duplicate detection record if Level 1 duplicate
+    if is_shared_duplicate:
+        dup_rec = DuplicateDetectionRecord(
+            entity_type="paper",
+            source_id=paper.id,
+            target_id=shared_dup.id,
+            detection_level="exact_pdf",
+            similarity_score=1.0,
+            match_metadata={"file_hash": file_hash},
+            action_taken="skipped",
+        )
+        db.add(dup_rec)
+
     await db.commit()
     await db.refresh(paper)
     return paper

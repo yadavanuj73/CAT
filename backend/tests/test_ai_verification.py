@@ -200,12 +200,14 @@ async def test_unverified_questions_cannot_enter_analytical_dataset():
         db.add(user)
         await db.flush()
 
+        initial_summary = await run_section_analysis(db, user.id, "QA")
+
         # Add unverified question
         unverified_q = Question(
             user_id=user.id,
             paper_id=uuid.uuid4(),
             question_number=1,
-            question_text="Solve log_2(x) = 4.",
+            question_text=f"Solve log_2(x) = 4 for gate test {uuid.uuid4().hex[:6]}.",
             question_type=QuestionType.TITA,
             section=Section.QA,
             difficulty=Difficulty.EASY,
@@ -215,9 +217,6 @@ async def test_unverified_questions_cannot_enter_analytical_dataset():
         db.add(unverified_q)
         await db.commit()
 
-        summary = await run_section_analysis(db, user.id, "QA")
+        summary_after = await run_section_analysis(db, user.id, "QA")
         # Strict gate: unverified question must NOT increment total_verified_questions
-        # If there are no other verified questions, it must be 0
-        assert summary.total_verified_questions >= 0
-        # Specifically, unverified question must not be reported as verified
-        assert "Analytical gate active" in summary.methodology or summary.total_verified_questions == 0
+        assert summary_after.total_verified_questions == initial_summary.total_verified_questions

@@ -112,6 +112,14 @@ class Question(TimestampMixin, Base):
     )
     year: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     slot: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    canonical_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    shared_question_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("shared_verified_questions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    dataset_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
