@@ -8,8 +8,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from app.config import settings
-from app.database import AsyncSessionLocal, init_db
+from app.database import AsyncSessionLocal, engine, init_db
 from app.routers import (
     analysis_router,
     api_keys_router,
@@ -78,13 +79,40 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Health Check
+# Health Check with live DB connectivity verification
 @app.get("/api/health", tags=["Health"])
 async def health_check():
+    db_status = "disconnected"
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+            db_status = "connected"
+    except Exception as exc:
+        safe_err = redact_secrets(str(exc))
+        logger.error(f"Health check DB failure: {safe_err}")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "unhealthy",
+                "service": "CAT Intelligence 2026 API",
+                "version": "1.0.0",
+                "environment": settings.ENVIRONMENT,
+                "database": "disconnected",
+                "detail": safe_err,
+            },
+        )
+
+    is_sqlite_in_prod = (
+        settings.ENVIRONMENT.lower() == "production"
+        and engine.url.get_backend_name() == "sqlite"
+    )
     return {
-        "status": "healthy",
+        "status": "degraded" if is_sqlite_in_prod else "healthy",
         "service": "CAT Intelligence 2026 API",
         "version": "1.0.0",
+        "environment": settings.ENVIRONMENT,
+        "database": db_status,
+        "database_backend": engine.url.get_backend_name(),
     }
 
 

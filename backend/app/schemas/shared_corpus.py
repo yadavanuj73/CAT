@@ -46,11 +46,24 @@ class SharedQuestionDetail(BaseModel):
     primary_slot: Optional[str] = None
     verification_status: str
     verification_confidence: float
+    topic: Optional[str] = None
+    subtopic: Optional[str] = None
     options: List[SharedQuestionOptionSchema] = []
     correct_answer: Optional[str] = None
     solution_text: Optional[str] = None
     sources: List[SharedQuestionSourceSchema] = []
     created_at: datetime
+
+
+class SharedQuestionReviewRequest(BaseModel):
+    status: str = Field(..., description="verified, needs_review, or rejected")
+    notes: Optional[str] = None
+
+
+class SharedQuestionReviewResponse(BaseModel):
+    id: uuid.UUID
+    verification_status: str
+    message: str
 
 
 class SharedQuestionListResponse(BaseModel):
@@ -86,4 +99,5 @@ class SharedCorpusStatsResponse(BaseModel):
     section_breakdown: Dict[str, int]
     year_breakdown: Dict[int, int]
     topic_breakdown: List[Dict[str, Any]]
+    difficulty_breakdown: Dict[str, int] = Field(default_factory=dict)
     recent_approved_questions: List[SharedQuestionDetail]

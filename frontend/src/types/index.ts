@@ -387,6 +387,8 @@ export interface SharedQuestion {
   primary_slot: string | null;
   verification_status: string;
   verification_confidence: number;
+  topic?: string | null;
+  subtopic?: string | null;
   options: SharedQuestionOption[];
   correct_answer: string | null;
   solution_text: string | null;
@@ -400,6 +402,10 @@ export interface SharedQuestionFilters {
   slot?: string;
   difficulty?: string;
   question_type?: string;
+  topic?: string;
+  subtopic?: string;
+  search?: string;
+  source_type?: string;
   limit?: number;
   offset?: number;
 }

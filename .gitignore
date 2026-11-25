@@ -22,7 +22,10 @@ wheels/
 *.egg
 .pytest_cache/
 cat2026.db
+backend/cat2026.db
+backups/
 uploads/
+data/historical_cat_papers/
 
 # Virtual Environments
 .venv

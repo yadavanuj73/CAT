@@ -1,9 +1,8 @@
 """
 Alembic async environment for CAT Intelligence 2026.
 
-This env.py drives migrations against an **asyncpg** connection so the same
-engine settings used by the application can be reused here.  It also imports
-all ORM models so ``--autogenerate`` sees every table.
+This env.py drives migrations against an **asyncpg** (or local aiosqlite) connection
+so the same engine settings used by the application can be reused here.
 """
 
 import asyncio
@@ -13,11 +12,12 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine
 
 # ── Import all models so metadata is populated ────────────────────────
 from app.models import Base  # noqa: F401  (registers all tables)
 from app.config import settings
+from app.database import normalize_async_database_url
 
 # Alembic Config object (provides access to alembic.ini values).
 config = context.config
@@ -30,17 +30,16 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Allow overriding the DB URL via environment variable or app settings.
-DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL") or os.getenv("DATABASE_URL") or settings.DATABASE_URL
+raw_url = os.getenv("SQLALCHEMY_DATABASE_URL") or os.getenv("DATABASE_URL") or settings.DATABASE_URL
+DATABASE_URL, CONNECT_ARGS, _ = normalize_async_database_url(raw_url)
 if DATABASE_URL:
-    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+    # Escape '%' to avoid ConfigParser interpolation failures on URL-encoded passwords
+    config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    Generates SQL scripts without connecting to the database.
-    """
-    url = config.get_main_option("sqlalchemy.url")
+    """Run migrations in 'offline' mode."""
+    url = DATABASE_URL or config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -63,10 +62,11 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Create an async engine and run migrations inside its connection."""
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = create_async_engine(
+        DATABASE_URL,
+        connect_args=CONNECT_ARGS,
         poolclass=pool.NullPool,
+        future=True,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

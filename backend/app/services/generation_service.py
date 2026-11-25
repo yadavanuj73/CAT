@@ -13,8 +13,9 @@ import json
 import random
 import uuid
 from typing import Dict, List, Optional
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.models.mock_exam import (
     ExamAttempt,
     ExamType,
@@ -27,6 +28,7 @@ from app.models.shared_corpus import (
     SharedAnswerKey,
     SharedQuestionOption,
     SharedQuestionSource,
+    SharedQuestionTopic,
     SharedSolution,
     SharedVerifiedQuestion,
 )
@@ -127,10 +129,21 @@ async def generate_mock_exam(
     for sec_code, count_needed in section_quotas:
         sec_enum = Section(sec_code)
         # 1. Fetch available questions from database (SharedVerifiedQuestion)
-        shared_stmt = select(SharedVerifiedQuestion).where(
-            SharedVerifiedQuestion.section == sec_enum,
-            SharedVerifiedQuestion.verification_status == "verified",
-        ).limit(count_needed)
+        shared_stmt = (
+            select(SharedVerifiedQuestion)
+            .options(
+                selectinload(SharedVerifiedQuestion.options),
+                selectinload(SharedVerifiedQuestion.answer_key),
+                selectinload(SharedVerifiedQuestion.solution),
+                selectinload(SharedVerifiedQuestion.topics).selectinload(SharedQuestionTopic.topic),
+            )
+            .where(
+                SharedVerifiedQuestion.section == sec_enum,
+                SharedVerifiedQuestion.verification_status == "verified",
+            )
+            .order_by(func.random())
+            .limit(count_needed)
+        )
         shared_res = await db.execute(shared_stmt)
         shared_qs = list(shared_res.scalars().all())
 
@@ -138,22 +151,22 @@ async def generate_mock_exam(
 
         # Convert shared DB questions to dict format
         for sq in shared_qs:
-            opt_stmt = select(SharedQuestionOption).where(
-                SharedQuestionOption.shared_question_id == sq.id
-            ).order_by(SharedQuestionOption.option_label)
-            opts = (await db.execute(opt_stmt)).scalars().all()
+            opts = sorted(sq.options or [], key=lambda o: o.option_label)
             options_list = [{"label": o.option_label, "text": o.option_text} for o in opts] if opts else None
+            ak = sq.answer_key
+            sol = sq.solution
 
-            ak_stmt = select(SharedAnswerKey).where(SharedAnswerKey.shared_question_id == sq.id)
-            ak = (await db.execute(ak_stmt)).scalar_one_or_none()
-
-            sol_stmt = select(SharedSolution).where(SharedSolution.shared_question_id == sq.id)
-            sol = (await db.execute(sol_stmt)).scalar_one_or_none()
+            # Retrieve topic and subtopic if available
+            topic_name = sq.section.value
+            subtopic_name = "Authentic CAT Corpus"
+            if sq.topics and len(sq.topics) > 0 and sq.topics[0].topic:
+                topic_name = sq.topics[0].topic.topic_name
+                subtopic_name = sq.topics[0].topic.subtopic_name or subtopic_name
 
             collected_questions.append({
                 "section": sec_code,
-                "topic": sq.section.value,
-                "subtopic": "Authentic CAT Corpus",
+                "topic": topic_name,
+                "subtopic": subtopic_name,
                 "difficulty": sq.difficulty.value if sq.difficulty else "medium",
                 "type": sq.question_type.value,
                 "text": sq.question_text,

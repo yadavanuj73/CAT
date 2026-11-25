@@ -11,7 +11,11 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+
+const PAGE_SIZE = 20;
 
 export const SharedQuestionBank: React.FC = () => {
   const [stats, setStats] = useState<SharedCorpusStats | null>(null);
@@ -20,51 +24,80 @@ export const SharedQuestionBank: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Filters
+  // Filters & Pagination
   const [section, setSection] = useState<string>('');
+  const [topic, setTopic] = useState<string>('');
   const [year, setYear] = useState<string>('');
   const [difficulty, setDifficulty] = useState<string>('');
   const [qType, setQType] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchInput, setSearchInput] = useState<string>('');
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const [page, setPage] = useState<number>(0);
+
+  // Debounce server-side search input and reset pagination to page 0
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
-    loadStats();
-    loadQuestions();
-  }, [section, year, difficulty, qType]);
+    let active = true;
+    sharedApi
+      .getStats()
+      .then((data) => {
+        if (active) setStats(data);
+      })
+      .catch((err) => {
+        console.error('Failed to load shared stats', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const loadStats = async () => {
-    try {
-      const data = await sharedApi.getStats();
-      setStats(data);
-    } catch (err) {
-      console.error('Failed to load shared stats', err);
-    }
-  };
+  useEffect(() => {
+    let active = true;
+    const fetchQuestions = async () => {
+      setIsLoading(true);
+      try {
+        const params: Record<string, any> = {
+          limit: PAGE_SIZE,
+          offset: page * PAGE_SIZE,
+        };
+        if (section) params.section = section;
+        if (topic) params.topic = topic;
+        if (year) params.year = Number(year);
+        if (difficulty) params.difficulty = difficulty;
+        if (qType) params.question_type = qType;
+        if (debouncedSearch) params.search = debouncedSearch;
 
-  const loadQuestions = async () => {
-    setIsLoading(true);
-    try {
-      const params: Record<string, any> = { limit: 50 };
-      if (section) params.section = section;
-      if (year) params.year = Number(year);
-      if (difficulty) params.difficulty = difficulty;
-      if (qType) params.question_type = qType;
+        const res = await sharedApi.listQuestions(params);
+        if (active) {
+          setQuestions(res.items || []);
+          setTotal(res.total || 0);
+        }
+      } catch (err) {
+        console.error('Failed to load shared questions', err);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    fetchQuestions();
+    return () => {
+      active = false;
+    };
+  }, [section, topic, year, difficulty, qType, debouncedSearch, page]);
 
-      const res = await sharedApi.listQuestions(params);
-      setQuestions(res.items || []);
-      setTotal(res.total || 0);
-    } catch (err) {
-      console.error('Failed to load shared questions', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const startIdx = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const endIdx = Math.min((page + 1) * PAGE_SIZE, total);
 
-  const filteredQuestions = questions.filter((q) => {
-    if (!searchQuery) return true;
-    const qText = q.question_text.toLowerCase();
-    return qText.includes(searchQuery.toLowerCase());
-  });
+  const availableTopics: string[] = (stats?.topic_breakdown || [])
+    .map((t: Record<string, any>) => String(t.topic || ''))
+    .filter(Boolean);
 
   return (
     <div className="space-y-6">
@@ -77,7 +110,7 @@ export const SharedQuestionBank: React.FC = () => {
           </h1>
         </div>
         <p className="text-sm text-gray-500 mt-1">
-          A self-growing, community-verified knowledge base of authentic CAT questions. Every contribution is verified, deduplicated at the database level, and made available to every user.
+          A self-growing, verified CAT 2026 preparation bank of original authored questions. Every record is mathematically verified, deduplicated at the database level, and available to all users.
         </p>
       </div>
 
@@ -91,7 +124,7 @@ export const SharedQuestionBank: React.FC = () => {
           <div className="mt-2 text-2xl font-bold text-gray-900">
             {stats ? stats.total_verified_papers : '—'}
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">Authentic CAT administrations</p>
+          <p className="text-[11px] text-gray-400 mt-1">Verified corpus pools</p>
         </div>
 
         <div className="bg-white border border-gray-200 rounded p-4">
@@ -124,20 +157,20 @@ export const SharedQuestionBank: React.FC = () => {
           <div className="mt-2 text-2xl font-bold text-gray-900">
             {stats ? stats.total_sources_linked : '—'}
           </div>
-          <p className="text-[11px] text-gray-400 mt-1">Multi-year appearance provenance</p>
+          <p className="text-[11px] text-gray-400 mt-1">Verified provenance links</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="bg-white border border-gray-200 rounded p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col lg:flex-row gap-3">
           <div className="flex-1 relative">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search question text or keywords (e.g. train, speed, logarithm, circular track)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search all verified questions by keywords (e.g. train, speed, logarithm, circular track)..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:border-blue-600"
             />
           </div>
@@ -145,7 +178,10 @@ export const SharedQuestionBank: React.FC = () => {
           <div className="flex flex-wrap gap-2">
             <select
               value={section}
-              onChange={(e) => setSection(e.target.value)}
+              onChange={(e) => {
+                setSection(e.target.value);
+                setPage(0);
+              }}
               className="px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-white text-gray-700 focus:outline-none focus:border-blue-600"
             >
               <option value="">All Sections</option>
@@ -155,8 +191,27 @@ export const SharedQuestionBank: React.FC = () => {
             </select>
 
             <select
+              value={topic}
+              onChange={(e) => {
+                setTopic(e.target.value);
+                setPage(0);
+              }}
+              className="px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-white text-gray-700 focus:outline-none focus:border-blue-600"
+            >
+              <option value="">All Topics</option>
+              {availableTopics.map((tName) => (
+                <option key={tName} value={tName}>
+                  {tName}
+                </option>
+              ))}
+            </select>
+
+            <select
               value={year}
-              onChange={(e) => setYear(e.target.value)}
+              onChange={(e) => {
+                setYear(e.target.value);
+                setPage(0);
+              }}
               className="px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-white text-gray-700 focus:outline-none focus:border-blue-600"
             >
               <option value="">All Years</option>
@@ -169,7 +224,10 @@ export const SharedQuestionBank: React.FC = () => {
 
             <select
               value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
+              onChange={(e) => {
+                setDifficulty(e.target.value);
+                setPage(0);
+              }}
               className="px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-white text-gray-700 focus:outline-none focus:border-blue-600"
             >
               <option value="">All Difficulties</option>
@@ -180,7 +238,10 @@ export const SharedQuestionBank: React.FC = () => {
 
             <select
               value={qType}
-              onChange={(e) => setQType(e.target.value)}
+              onChange={(e) => {
+                setQType(e.target.value);
+                setPage(0);
+              }}
               className="px-2.5 py-1.5 text-xs border border-gray-200 rounded bg-white text-gray-700 focus:outline-none focus:border-blue-600"
             >
               <option value="">All Formats</option>
@@ -190,13 +251,13 @@ export const SharedQuestionBank: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500 pt-1 border-t border-gray-100">
           <span>
-            Showing <strong className="text-gray-900">{filteredQuestions.length}</strong> of{' '}
+            Showing <strong className="text-gray-900">{startIdx}–{endIdx}</strong> of{' '}
             <strong className="text-gray-900">{total}</strong> verified questions
           </span>
           <span className="text-gray-400">
-            Duplicates automatically deduplicated at database level
+            Page {page + 1} of {totalPages} • Duplicates prevented at database level
           </span>
         </div>
       </div>
@@ -207,14 +268,14 @@ export const SharedQuestionBank: React.FC = () => {
           <div className="bg-white border border-gray-200 rounded p-8 text-center text-xs text-gray-400">
             Querying shared verified database...
           </div>
-        ) : filteredQuestions.length === 0 ? (
+        ) : questions.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded p-8 text-center text-xs text-gray-400 space-y-2">
             <AlertCircle className="w-6 h-6 text-gray-300 mx-auto" />
             <p className="font-medium text-gray-600">No verified questions match current filter criteria.</p>
-            <p>Upload a CAT paper to contribute and expand the shared question bank.</p>
+            <p>Adjust search/filters or upload a CAT paper to expand the shared question bank.</p>
           </div>
         ) : (
-          filteredQuestions.map((q) => {
+          questions.map((q) => {
             const isExpanded = expandedId === q.id;
             return (
               <div
@@ -222,12 +283,12 @@ export const SharedQuestionBank: React.FC = () => {
                 className="bg-white border border-gray-200 rounded p-4 space-y-3 hover:border-gray-300 transition-colors"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                       {q.section}
                     </span>
                     <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-700">
-                      CAT {q.primary_year} {q.primary_slot || ''}
+                      {q.primary_slot || `CAT ${q.primary_year}`}
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded text-[11px] font-medium capitalize ${
@@ -243,6 +304,11 @@ export const SharedQuestionBank: React.FC = () => {
                     <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-purple-50 text-purple-700">
                       {q.question_type}
                     </span>
+                    {q.topic && (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {q.topic}{q.subtopic ? ` · ${q.subtopic}` : ''}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -261,7 +327,7 @@ export const SharedQuestionBank: React.FC = () => {
 
                 {/* Passage if applicable */}
                 {q.has_passage && q.passage_text && (
-                  <div className="bg-gray-50 border-l-2 border-blue-400 p-3 rounded text-xs text-gray-700 italic">
+                  <div className="bg-gray-50 border-l-2 border-blue-400 p-3 rounded text-xs text-gray-700 italic whitespace-pre-wrap">
                     <strong className="block text-[10px] text-gray-500 uppercase not-italic mb-1">
                       Reading Comprehension Passage:
                     </strong>
@@ -269,8 +335,18 @@ export const SharedQuestionBank: React.FC = () => {
                   </div>
                 )}
 
+                {/* DILR Dataset if applicable */}
+                {q.dataset_text && !q.question_text.includes(q.dataset_text) && (
+                  <div className="bg-slate-50 border-l-2 border-indigo-400 p-3 rounded text-xs text-gray-700 whitespace-pre-wrap font-mono">
+                    <strong className="block text-[10px] text-gray-500 uppercase font-sans mb-1">
+                      DILR Caselet & Dataset:
+                    </strong>
+                    {q.dataset_text}
+                  </div>
+                )}
+
                 {/* Question Text */}
-                <div className="text-sm text-gray-900 leading-relaxed font-normal">
+                <div className="text-sm text-gray-900 leading-relaxed font-normal whitespace-pre-wrap">
                   <span className="font-semibold text-gray-500 mr-2">Q{q.question_number}.</span>
                   {q.question_text}
                 </div>
@@ -316,16 +392,16 @@ export const SharedQuestionBank: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Source Provenance (Multi-source mapping without question duplicate) */}
+                    {/* Source Provenance */}
                     {q.sources && q.sources.length > 0 && (
                       <div className="text-[11px] text-gray-500 flex flex-wrap items-center gap-2">
-                        <strong className="text-gray-700">Historical Appearances:</strong>
+                        <strong className="text-gray-700">Source Provenance:</strong>
                         {q.sources.map((src) => (
                           <span
                             key={src.id}
                             className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded border border-gray-200"
                           >
-                            CAT {src.year} {src.slot || ''} ({src.source_name || 'Official'})
+                            {src.source_name || `CAT ${src.year}`} ({src.source_type})
                           </span>
                         ))}
                       </div>
@@ -337,6 +413,33 @@ export const SharedQuestionBank: React.FC = () => {
           })
         )}
       </div>
+
+      {/* Pagination Footer */}
+      {total > PAGE_SIZE && (
+        <div className="bg-white border border-gray-200 rounded p-3 flex items-center justify-between text-xs text-gray-600">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0 || isLoading}
+            className="flex items-center gap-1 px-3 py-1.5 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span>Previous</span>
+          </button>
+
+          <span className="font-medium text-gray-700">
+            Page {page + 1} of {totalPages}
+          </span>
+
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1 || isLoading}
+            className="flex items-center gap-1 px-3 py-1.5 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+          >
+            <span>Next</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
